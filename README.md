@@ -2,7 +2,7 @@
 [![Live Web Feed](https://img.shields.io/badge/📡_Live_Web_Feed_(15m_Delay)-t.me%2Fs%2Fcs2__snipe__radar__free-2CA5E0?style=for-the-badge)](https://t.me/s/cs2_snipe_radar_free)
 [![0-Second VIP Access](https://img.shields.io/badge/⚡_0s_Real--Time_VIP_Feed-Whop_Marketplace-FF5722?style=for-the-badge)](https://whop.com/snipe-radar/vip-0-second-real-time-alerts)
 [![24h Verified Sold Rate](https://img.shields.io/badge/24h_Verified_Sold_Rate-85.7%25_(100%25_EU%2FUS_Night)-10B981?style=for-the-badge)](./latest_24h_recap.md)
-[![Median Survival Time](https://img.shields.io/badge/Median_Time--to--Fill-55.11s-8B5CF6?style=for-the-badge)](./latest_24h_recap.md)
+[![Median Survival Time](https://img.shields.io/badge/Median_Time--to--Fill-55.11s_(Raw_CSV)-8B5CF6?style=for-the-badge)](./verified_snipes_sample.csv)
 
 Lightweight Python `asyncio` ingestion engine tracking real-time CS2 skin undercuts, applied sticker/charm overpay, and exact survival times (`time-to-fill`) across **Skinport** and **CSFloat**.
 
