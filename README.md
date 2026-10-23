@@ -32,4 +32,3 @@ Raw discount percentages on cash marketplaces are 90% noise unless manipulation 
    * Flags underpriced rifles carrying high-tier **Charms** (since CS2 charms can be detached with a $0.99 pack and sold separately for ~85% cash value after fees).
 4. **System Footprint**: Single-process 3-coroutine architecture (`curl_cffi` Brotli stream decompression + SQLite WAL persistence + tuple-packed RAM cache running under 140 MiB RAM).
 ## 💬 Community & Discussions
-* [Elitepvpers Counter-Strike Trading & Market Discussions](https://www.elitepvpers.com/forum/counter-strike/)
