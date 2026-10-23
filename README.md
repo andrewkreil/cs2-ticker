@@ -31,3 +31,20 @@ Raw discount percentages on cash marketplaces are 90% noise unless manipulation 
    * Evaluates applied stickers by weapon slot visibility and scrape wear.
    * Flags underpriced rifles carrying high-tier **Charms** (since CS2 charms can be detached with a $0.99 pack and sold separately for ~85% cash value after fees).
 4. **System Footprint**: Single-process 3-coroutine architecture (`curl_cffi` Brotli stream decompression + SQLite WAL persistence + tuple-packed RAM cache running under 140 MiB RAM).
+---
+
+## 📊 Latest 24-Hour Production Telemetry Snapshot (Verified Sold Log)
+
+Out of **13,649** live Skinport listings ingested over a fixed 24-hour audit window (`pricing_model=4`), **99.90%** were rejected as illiquid or fee-negative noise, leaving **14 verified liquid undercuts** (**85.71% sold overall; 100.00% sold during the EU/US night session** with a median survival time of **55.11s**).
+
+* 📄 **Full 24h Funnel & Case Study Report:** [`latest_24h_recap.md`](./latest_24h_recap.md)
+* 🗂️ **Raw Desensitized Hit Dataset (CSV):** [`verified_snipes_sample.csv`](./verified_snipes_sample.csv)
+
+| Item Name | Listed (USD) | Benchmark (USD) | Net Profit (Post-Fees) | Net ROI | Survival Time (Time-to-Fill) | Status |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **★ Butterfly Knife \| Tiger Tooth (FN)** *(3x Price Cut)* | **$891.43** | $1,025.23 | **+$94.84** | **+10.64%** | **44.8s** | ✅ SOLD |
+| **★ Driver Gloves \| Imperial Plaid (MW)** | **$247.37** | $281.03 | **+$22.98** | **+9.29%** | **150.9s** | ✅ SOLD |
+| **StatTrak™ AWP \| Printstream (MW)** | **$95.96** | $112.79 | **+$12.58** | **+13.11%** | **56.3s** | ✅ SOLD |
+| **★ Specialist Gloves \| Big Swell (FT)** | **$151.78** | $167.88 | **+$9.72** | **+6.40%** | **547.8s** | ✅ SOLD |
+| **★ Nomad Knife \| Crimson Web (FT)** | **$125.56** | $138.88 | **+$8.04** | **+6.40%** | **46.8s** | ✅ SOLD |
+| **★ Nomad Knife \| Forest DDPAT (FT)** | **$60.41** | $68.06 | **+$5.06** | **+8.38%** | **29.5s** | ✅ SOLD |
