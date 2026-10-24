@@ -1,0 +1,85 @@
+{
+  "schema_version": 1,
+  "window": {
+    "start": "2026-10-21T10:46:00+08:00",
+    "end": "2026-10-22T10:46:00+08:00",
+    "timezone": "Asia/Shanghai"
+  },
+  "source": {
+    "kind": "user_supplied_audit",
+    "label": "Model 4 fixed 24h PIT audit — user-supplied baseline",
+    "url": null,
+    "verified_at": null
+  },
+  "model": {
+    "recovery_factor": 0.962,
+    "min_net_profit_usd": 2.5,
+    "min_roi_pct": 6.0
+  },
+  "funnel": {
+    "scanned": 13649,
+    "rejected": 13635,
+    "accepted": 14,
+    "rejected_pct": 99.897,
+    "accepted_pct": 0.103
+  },
+  "survival": {
+    "sold_count": 12,
+    "observed_count": 14,
+    "timing_sample_count": null,
+    "night_sold_count": 6,
+    "night_observed_count": 6,
+    "median_seconds": 55.11,
+    "fastest_seconds": 9.96,
+    "sold_pct": 85.71
+  },
+  "top_hits": [
+    {
+      "sale_id": "61317316",
+      "market_hash_name": "★ Butterfly Knife | Tiger Tooth (Factory New)",
+      "listed_price_usd": 891.43,
+      "fair_benchmark_usd": 1025.23,
+      "estimated_net_profit_usd": 94.84,
+      "roi_pct": 10.64,
+      "survival_seconds": 44.8,
+      "status": "SOLD",
+      "price_history_usd": [
+        988.26,
+        939.72,
+        891.43
+      ]
+    },
+    {
+      "sale_id": "61372664",
+      "market_hash_name": "★ Driver Gloves | Imperial Plaid (Minimal Wear)",
+      "listed_price_usd": 247.37,
+      "fair_benchmark_usd": 281.03,
+      "estimated_net_profit_usd": 22.98,
+      "roi_pct": 9.29,
+      "survival_seconds": 150.9,
+      "status": "SOLD",
+      "price_history_usd": []
+    },
+    {
+      "sale_id": "61365742",
+      "market_hash_name": "StatTrak™ AWP | Printstream (Minimal Wear)",
+      "listed_price_usd": 95.96,
+      "fair_benchmark_usd": 112.79,
+      "estimated_net_profit_usd": 12.58,
+      "roi_pct": 13.11,
+      "survival_seconds": 56.3,
+      "status": "SOLD",
+      "price_history_usd": []
+    }
+  ],
+  "notes": [
+    "Fixed historical window, not a live feed. Baseline transcribed from the user-supplied PIT report; raw audit was not independently revalidated.",
+    "Estimated net spread is modeled, not realized profit. SOLD means an observed market sale, not our purchase or resale.",
+    "Window timezone is assumed Asia/Shanghai from the supplied Beijing-time context.",
+    "Reported Printstream spread/ROI ($12.58 / 13.11%) differ from recalculation with the rounded benchmark and 0.962 factor ($12.54 / 13.07%). The historical table preserves reported figures; calculators recompute from inputs.",
+    "Rejection describes this filter's criteria, not fraud or traps. Historical observations do not guarantee future availability or returns.",
+    "Timing uses first confirmed VIP broadcast to observed SOLD. The source reports more than 80% of hits at minutes :00–:04; exact numerator was not supplied.",
+    "The supplied rounded funnel percentages (99.898% / 0.102%) differ from the integer counts. Public exports recalculate these as 99.897% / 0.103%.",
+    "The source supplies median/fastest timing, but does not explicitly state the valid timing sample count; that count remains unknown."
+  ]
+}

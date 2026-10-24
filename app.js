@@ -143,13 +143,13 @@
         const read = key => entry[key] === '' ? NaN : Number(entry[key]);
         const normalized = absolute ? M.normalizeFloat(read('actual'),read('min'),read('max')) : read('normalized');
         set('normalized-' + index, absolute ? 'Normalized: ' + (Number.isFinite(normalized) ? normalized.toFixed(8) : '—') : 'Relative position within this input skin’s own range');
-        return normalized;
+        return absolute ? {actual:read('actual'),min:read('min'),max:read('max')} : normalized;
       });
       const result = M.calculateFillers(number('output-min'),number('output-max'),number('target-float'),owned,number('filler-min'),number('filler-max'));
       set('required-average', '< ' + conservative(result.requiredAverage));
       $('required-average').title = 'Exact computed upper bound: ' + result.requiredAverage.toPrecision(16);
       set('required-average-pct', 'Normalized float · below ' + conservative(result.requiredAverage * 100,4) + '%');
-      set('remaining-count', 'Across ' + result.remaining + ' remaining inputs');
+      set('remaining-count', 'Across ' + result.remaining + ' remaining input' + (result.remaining === 1 ? '' : 's'));
       set('filler-range-note', 'For fillers with range ' + number('filler-min').toFixed(2) + '–' + number('filler-max').toFixed(2));
       if (result.feasible) {
         const operator = result.allFillersAllowed ? '≤ ' : '< ';

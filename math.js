@@ -104,11 +104,15 @@
     };
   }
 
-  function normalizeFloat(value, min, max) {
+  function normalizedFraction(value, min, max) {
     range(min, max, "Input float range");
     finite(value, "Input float");
     if (value < min || value > max) throw new RangeError("Input float must be within its skin's range.");
-    return number(divide(subtract(decimal(value), decimal(min)), subtract(decimal(max), decimal(min))));
+    return divide(subtract(decimal(value), decimal(min)), subtract(decimal(max), decimal(min)));
+  }
+
+  function normalizeFloat(value, min, max) {
+    return number(normalizedFraction(value, min, max));
   }
 
   function calculateFillers(outputMin, outputMax, target, ownedNormalized, fillerMin, fillerMax) {
@@ -118,7 +122,15 @@
     if (!Array.isArray(ownedNormalized) || ownedNormalized.length > 4) {
       throw new RangeError("Provide zero to four owned normalized floats.");
     }
-    ownedNormalized.forEach((value, index) => unit(value, "Owned normalized float " + (index + 1)));
+    // Keep actual floats as exact decimal ratios until the strict comparison.
+    // A rounded Number can falsely leave a tiny positive budget at equality.
+    const ownedFractions = ownedNormalized.map((value, index) => {
+      if (value !== null && typeof value === "object" && !Array.isArray(value)) {
+        return normalizedFraction(value.actual, value.min, value.max);
+      }
+      unit(value, "Owned normalized float " + (index + 1));
+      return decimal(value);
+    });
     const remaining = 5 - ownedNormalized.length;
     const required = divide(subtract(decimal(target), decimal(outputMin)), subtract(decimal(outputMax), decimal(outputMin)));
     const requiredAverage = number(required);
@@ -128,7 +140,7 @@
     });
     if (target <= outputMin) return infeasible("target_at_or_below_output_minimum");
     let owned = [0n, 1n];
-    for (const value of ownedNormalized) owned = add(owned, decimal(value));
+    for (const value of ownedFractions) owned = add(owned, value);
     const budget = divide(subtract(multiply(required, [5n, 1n]), owned), [BigInt(remaining), 1n]);
     if (compare(budget, [0n, 1n]) <= 0) return infeasible("owned_materials_exhaust_float_budget");
     const allFillersAllowed = compare(budget, [1n, 1n]) > 0;
