@@ -273,3 +273,161 @@
   }
   renderOwned(); updateCashout(); updateFloat(); renderTelemetry(BASELINE,true); loadTelemetry();
 })();
+
+
+/* Buildless sequential AnimatedList adaptation; original calculator code above is unchanged.
+ * Source: magicuidesign/magicui @ efe76fc5755eca1142dd4f74c1d6f0ace2887e3c
+ * MIT License
+ * Copyright (c) Magic UI
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+(() => {
+  'use strict';
+  if (typeof document === 'undefined') return;
+  const root = document.getElementById('delayed-feed-window');
+  if (!root) return;
+  const viewport = root.querySelector('#stream-scroll');
+  const toggle = root.querySelector('#stream-toggle');
+  const label = root.querySelector('#stream-playback-label');
+  const cards = Array.from(root.querySelectorAll('.stream-message'));
+  if (!viewport || !toggle || !label || !cards.length) return;
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const delay = 6500;
+  let index = 0;
+  let timer = null;
+  let inView = false;
+  let hover = false;
+  let focused = false;
+  let userPaused = reducedMotion.matches;
+  let completed = false;
+  let started = false;
+  let observer;
+  toggle.hidden = false;
+
+  function clearTimer() {
+    if (timer !== null) window.clearTimeout(timer);
+    timer = null;
+  }
+  function reason() {
+    if (completed) return 'complete';
+    if (userPaused) return 'manual';
+    if (document.hidden) return 'background';
+    if (!inView) return 'offscreen';
+    if (hover) return 'hover';
+    if (focused) return 'focus';
+    return '';
+  }
+  function showCard(animate) {
+    cards.forEach((card, position) => {
+      const current = position === index;
+      card.classList.toggle('is-current', current);
+      card.classList.remove('is-entering');
+      if (current) card.setAttribute('aria-current', 'true');
+      else card.removeAttribute('aria-current');
+    });
+    const card = cards[index];
+    if (animate && !reducedMotion.matches) card.classList.add('is-entering');
+    viewport.scrollTo({top: Math.max(0, card.offsetTop - 15), behavior: animate && !reducedMotion.matches ? 'smooth' : 'auto'});
+  }
+  function render() {
+    clearTimer();
+    const pausedBy = reason();
+    root.dataset.streamState = completed ? 'complete' : pausedBy ? 'paused' : 'playing';
+    root.dataset.streamReason = pausedBy || 'none';
+    root.dataset.streamIndex = String(index + 1);
+    toggle.textContent = userPaused || completed ? 'Replay Stream' : 'Pause Stream';
+    toggle.setAttribute('aria-label', toggle.textContent);
+    const progress = (index + 1) + ' / ' + cards.length;
+    if (completed) label.textContent = 'Replay complete · ' + cards.length + ' verified cards';
+    else if (userPaused) label.textContent = 'Paused · browse all ' + cards.length + ' verified cards';
+    else if (pausedBy === 'hover' || pausedBy === 'focus') label.textContent = 'Paused while browsing · ' + progress;
+    else if (pausedBy) label.textContent = 'Historical replay ready · ' + cards.length + ' cards';
+    else label.textContent = 'Historical replay · ' + progress + ' · #' + cards[index].dataset.postId;
+    if (pausedBy) {
+      // Cancel an in-flight smooth scroll without stealing a user's scroll position.
+      viewport.scrollTo({top: viewport.scrollTop, behavior: 'auto'});
+      return;
+    }
+    if (!started) {
+      started = true;
+      showCard(true);
+    }
+    timer = window.setTimeout(() => {
+      timer = null;
+      if (reason()) { render(); return; }
+      if (index === cards.length - 1) completed = true;
+      else { index += 1; showCard(true); }
+      render();
+    }, delay);
+  }
+  function pauseForBrowse() {
+    userPaused = true;
+    render();
+  }
+  toggle.addEventListener('click', () => {
+    if (userPaused || completed) {
+      userPaused = false;
+      completed = false;
+      index = 0;
+      started = true;
+      showCard(!reducedMotion.matches);
+    } else userPaused = true;
+    render();
+  });
+  viewport.addEventListener('pointerenter', event => {
+    if (event.pointerType === 'mouse') { hover = true; render(); }
+  });
+  viewport.addEventListener('pointerleave', event => {
+    if (event.pointerType === 'mouse') { hover = false; render(); }
+  });
+  // Touch, wheel, scrollbar dragging and keyboard navigation latch Pause until Replay.
+  // No preventDefault, scroll interception, fetching, cloning, or hidden history.
+  viewport.addEventListener('pointerdown', pauseForBrowse, {passive: true});
+  viewport.addEventListener('wheel', pauseForBrowse, {passive: true});
+  viewport.addEventListener('keydown', event => {
+    if (['ArrowUp','ArrowDown','PageUp','PageDown','Home','End',' '].includes(event.key)) pauseForBrowse();
+  });
+  viewport.addEventListener('focusin', () => { focused = true; render(); });
+  viewport.addEventListener('focusout', event => {
+    focused = viewport.contains(event.relatedTarget);
+    render();
+  });
+  document.addEventListener('visibilitychange', render);
+  reducedMotion.addEventListener('change', () => {
+    if (reducedMotion.matches) userPaused = true;
+    render();
+  });
+  if ('IntersectionObserver' in window) {
+    observer = new IntersectionObserver(entries => {
+      inView = entries[0].isIntersecting && entries[0].intersectionRatio >= 0.12;
+      render();
+    }, {threshold: 0.12});
+    observer.observe(viewport);
+  } else inView = true;
+  window.addEventListener('pageshow', event => {
+    if (event.persisted) {
+      if (observer) observer.observe(viewport);
+      render();
+    }
+  });
+  window.addEventListener('pagehide', () => {
+    clearTimer();
+    if (observer) observer.disconnect();
+  }, {once: true});
+  showCard(false);
+  render();
+})();
