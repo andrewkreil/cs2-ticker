@@ -1,433 +1,383 @@
-/* Public calculators and dated, read-only telemetry. No cookies or analytics. */
-(function () {
-  'use strict';
-  const M = typeof window !== 'undefined' ? window.GrowthMath : null;
-  const $ = id => document.getElementById(id);
-  const money = value => value === null || !Number.isFinite(value) ? '—' : new Intl.NumberFormat('en-US', {style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2}).format(value);
-  const signedMoney = value => value === null || !Number.isFinite(value) ? '—' : (value >= 0 ? '+' : '−') + money(Math.abs(value));
-  const percent = value => value === null || !Number.isFinite(value) ? '—' : value.toFixed(2) + '%';
-  const number = id => $(id).value === '' ? NaN : Number($(id).value);
-  const set = (id, value) => { $(id).textContent = value; };
-  const error = (id, text) => { set(id, text || ''); $(id).hidden = !text; };
-  const positiveStyle = (element, value) => { element.classList.toggle('negative', value < 0); element.classList.toggle('positive', value >= 0); };
-  const BASELINE = {
-    schema_version: 1,
-    window: {start:'2026-10-21T10:46:00+08:00',end:'2026-10-22T10:46:00+08:00',timezone:'Asia/Shanghai'},
-    source: {kind:'user_supplied_audit',label:'Model 4 fixed 24h PIT audit — user-supplied baseline',url:null,verified_at:null},
-    model: {recovery_factor:0.962,min_net_profit_usd:2.5,min_roi_pct:6},
-    funnel: {scanned:13649,rejected:13635,accepted:14,rejected_pct:99.897,accepted_pct:0.103},
-    survival: {sold_count:12,observed_count:14,sold_pct:85.71,median_seconds:55.11,fastest_seconds:9.96,timing_sample_count:null,night_sold_count:6,night_observed_count:6},
-    top_hits: [
-      {sale_id:'61317316',market_hash_name:'★ Butterfly Knife | Tiger Tooth (Factory New)',listed_price_usd:891.43,fair_benchmark_usd:1025.23,estimated_net_profit_usd:94.84,roi_pct:10.64,survival_seconds:44.8,status:'SOLD',price_history_usd:[988.26,939.72,891.43]},
-      {sale_id:'61372664',market_hash_name:'★ Driver Gloves | Imperial Plaid (Minimal Wear)',listed_price_usd:247.37,fair_benchmark_usd:281.03,estimated_net_profit_usd:22.98,roi_pct:9.29,survival_seconds:150.9,status:'SOLD',price_history_usd:[]},
-      {sale_id:'61365742',market_hash_name:'StatTrak™ AWP | Printstream (Minimal Wear)',listed_price_usd:95.96,fair_benchmark_usd:112.79,estimated_net_profit_usd:12.58,roi_pct:13.11,survival_seconds:56.3,status:'SOLD',price_history_usd:[]}
-    ],
-    notes: [
-      'Historical baseline supplied by the project owner; raw audit has not been independently revalidated here. Window timezone is inferred as UTC+08:00 from the supplied Beijing-time context.',
-      'Funnel percentages are calculated from the supplied counts: 13,635 / 13,649 = 99.897% filtered and 14 / 13,649 = 0.103% accepted. These differ from the original reported 99.898% / 0.102%.',
-      'Printstream preserves the reported $12.58 / 13.11%. Applying 0.962 to the displayed benchmark gives $12.54 / 13.07%; the calculator always uses the formula.',
-      'The source reports median/fastest timing but does not disclose the valid timing sample count; that count remains unknown.',
-      'SOLD is a market observation. Estimated spreads are not proof of a completed profitable resale. Filtered events are not necessarily fraudulent listings.'
-    ]
-  };
-
-  if (typeof module === 'object' && module.exports) {
-    module.exports = {validTelemetry,telemetryMetrics,money};
-    return;
-  }
-
-  function showTab(name, updateHash) {
-    const selected = name === 'float' ? 'float' : 'cashout';
-    document.querySelectorAll('[data-tab]').forEach(button => {
-      const active = button.dataset.tab === selected;
-      button.classList.toggle('active', active);
-      button.setAttribute('aria-selected', String(active));
-      button.tabIndex = active ? 0 : -1;
-      $(button.dataset.tab).hidden = !active;
-    });
-    if (updateHash && location.hash !== '#' + selected) history.replaceState(null, '', '#' + selected);
-  }
-  document.querySelectorAll('[data-tab]').forEach(button => {
-    button.addEventListener('click', () => showTab(button.dataset.tab, true));
-    button.addEventListener('keydown', event => {
-      if (!['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) return;
-      event.preventDefault();
-      const next = event.key === 'Home' ? 'cashout' : event.key === 'End' ? 'float' : button.dataset.tab === 'cashout' ? 'float' : 'cashout';
-      showTab(next, true); $('tab-' + next).focus();
-    });
-  });
-  window.addEventListener('hashchange', () => { if (['#float','#cashout'].includes(location.hash)) showTab(location.hash.slice(1), false); });
-  showTab(location.hash.slice(1), false);
-
-  function updateFees() {
-    try {
-      const fair = number('fair'), listed = number('listed');
-      for (const platform of ['skinport','csfloat']) {
-        const sellerFee = number(platform === 'skinport' ? 'skinport-tier' : 'csfloat-seller');
-        const result = M.compareCashout(fair, listed, sellerFee, number(platform + '-payout'));
-        set(platform + '-recovery', money(result.afterFee));
-        set(platform + '-net', signedMoney(result.netProfit));
-        set(platform + '-roi', percent(result.roiPct));
-        positiveStyle($(platform + '-net'), result.netProfit);
-      }
-      error('fee-error', '');
-    } catch (e) {
-      error('fee-error', e.message);
-      for (const platform of ['skinport','csfloat']) for (const field of ['recovery','net','roi']) set(platform + '-' + field, '—');
-    }
-  }
-  function updateCashout() {
-    try {
-      const result = M.calculateSnipe(number('fair'), number('listed'));
-      set('net-profit', signedMoney(result.netProfit));
-      set('net-roi', (result.roiPct >= 0 ? '+' : '') + percent(result.roiPct));
-      positiveStyle($('net-profit'), result.netProfit);
-      positiveStyle($('net-roi'), result.roiPct);
-      set('safe-price', result.feasible ? money(result.maxSafePrice) : 'No valid buy price');
-      set('after-fee', money(result.afterFee));
-      set('threshold-status', result.passes ? 'WITHIN MODEL LIMIT' : 'OUTSIDE MODEL LIMIT');
-      $('threshold-status').classList.toggle('fail', !result.passes);
-      const gap = result.maxSafePrice - number('listed');
-      set('headroom', !result.feasible ? 'Benchmark too low to meet both thresholds' : money(Math.abs(gap)) + (gap >= 0 ? ' below buy limit' : ' above buy limit'));
-      error('cashout-error', '');
-      $('cashout-results').classList.remove('invalid-results');
-    } catch (e) {
-      error('cashout-error', e.message);
-      ['net-profit','net-roi','safe-price','after-fee','headroom'].forEach(id => set(id, '—'));
-      set('threshold-status', 'CHECK INPUTS');
-      $('threshold-status').classList.add('fail');
-      $('cashout-results').classList.add('invalid-results');
-    }
-    updateFees();
-  }
-  ['fair','listed'].forEach(id => {
-    $(id).addEventListener('input', () => { $(id + '-range').value = $(id).value; updateCashout(); });
-    $(id + '-range').addEventListener('input', () => { $(id).value = $(id + '-range').value; updateCashout(); });
-  });
-  ['skinport-tier','skinport-payout','csfloat-seller','csfloat-payout'].forEach(id => $(id).addEventListener('input', updateFees));
-  $('cashout-form').addEventListener('submit', event => event.preventDefault());
-
-  const ownedValues = Array.from({length:4}, () => ({normalized:'0.005',actual:'0.005',min:'0',max:'1'}));
-  function renderOwned() {
-    const count = number('owned-count'), absolute = $('input-mode').value === 'absolute';
-    const container = $('owned-materials'); container.replaceChildren();
-    for (let i = 0; i < count; i++) {
-      const row = document.createElement('div'); row.className = 'owned-row';
-      const heading = document.createElement('span'); heading.className = 'owned-row-title'; heading.textContent = 'OWNED INPUT ' + (i + 1); row.append(heading);
-      const grid = document.createElement('div'); grid.className = 'input-grid' + (absolute ? ' float-three' : '');
-      for (const [key,label] of absolute ? [['actual','Actual float'],['min','Skin minimum'],['max','Skin maximum']] : [['normalized','Normalized float (0–1)']]) {
-        const field = document.createElement('div'); field.className = 'field';
-        const input = document.createElement('input'); input.id = 'owned-' + i + '-' + key; input.type = 'number'; input.min = '0'; input.max = '1'; input.step = '0.000001'; input.inputMode = 'decimal'; input.value = ownedValues[i][key];
-        const labelElement = document.createElement('label'); labelElement.htmlFor = input.id; labelElement.textContent = label;
-        input.addEventListener('input', () => { ownedValues[i][key] = input.value; updateFloat(); });
-        field.append(labelElement, input); grid.append(field);
-      }
-      row.append(grid);
-      const normalized = document.createElement('span'); normalized.className = 'owned-normalized'; normalized.id = 'normalized-' + i; row.append(normalized);
-      container.append(row);
-    }
-  }
-  function conservative(value, digits = 5) {
-    if (value === 0) return '0.00000';
-    if (value > 0 && value < Math.pow(10, -digits)) {
-      const exponent = Math.floor(Math.log10(value));
-      const factor = Math.pow(10, exponent);
-      return (Math.floor((value / factor) * 10000) / 10000).toFixed(4) + 'e' + exponent;
-    }
-    return (Math.floor(value * Math.pow(10,digits)) / Math.pow(10,digits)).toFixed(digits);
-  }
-  function updateFloat() {
-    try {
-      const count = number('owned-count'), absolute = $('input-mode').value === 'absolute';
-      const owned = ownedValues.slice(0,count).map((entry,index) => {
-        const read = key => entry[key] === '' ? NaN : Number(entry[key]);
-        const normalized = absolute ? M.normalizeFloat(read('actual'),read('min'),read('max')) : read('normalized');
-        set('normalized-' + index, absolute ? 'Normalized: ' + (Number.isFinite(normalized) ? normalized.toFixed(8) : '—') : 'Relative position within this input skin’s own range');
-        return absolute ? {actual:read('actual'),min:read('min'),max:read('max')} : normalized;
-      });
-      const result = M.calculateFillers(number('output-min'),number('output-max'),number('target-float'),owned,number('filler-min'),number('filler-max'));
-      set('required-average', '< ' + conservative(result.requiredAverage));
-      $('required-average').title = 'Exact computed upper bound: ' + result.requiredAverage.toPrecision(16);
-      set('required-average-pct', 'Normalized float · below ' + conservative(result.requiredAverage * 100,4) + '%');
-      set('remaining-count', 'Across ' + result.remaining + ' remaining input' + (result.remaining === 1 ? '' : 's'));
-      set('filler-range-note', 'For fillers with range ' + number('filler-min').toFixed(2) + '–' + number('filler-max').toFixed(2));
-      if (result.feasible) {
-        const operator = result.allFillersAllowed ? '≤ ' : '< ';
-        set('filler-normalized', operator + conservative(result.maxFillerNormalized));
-        set('filler-absolute', operator + conservative(result.maxFillerFloat));
-        $('filler-normalized').title = 'Computed upper bound: ' + result.maxFillerNormalized.toPrecision(16);
-        $('filler-absolute').title = 'Computed upper bound: ' + result.maxFillerFloat.toPrecision(16);
-        set('float-status', result.allFillersAllowed ? 'FULL RANGE AVAILABLE' : 'BUDGET AVAILABLE');
-        set('float-budget-note', result.allFillersAllowed ? 'Every remaining normalized float from 0 to 1 fits this target with the entered owned materials.' : 'Individual fillers may vary; their average must remain strictly below the limit. Displayed bounds are conservatively truncated.');
-      } else {
-        set('filler-normalized','Not reachable'); set('filler-absolute','No valid fillers');
-        set('float-status','TARGET UNREACHABLE');
-        set('float-budget-note', result.reason === 'target_at_or_below_output_minimum' ? 'The strict target must be above the output’s minimum possible float.' : 'Your owned materials already exhaust the float budget, even if every remaining filler has normalized float 0.');
-      }
-      $('float-status').classList.toggle('fail', !result.feasible);
-      error('float-error',''); $('float-results').classList.remove('invalid-results');
-    } catch (e) {
-      error('float-error',e.message);
-      ['required-average','required-average-pct','filler-normalized','remaining-count','filler-absolute','filler-range-note','float-budget-note'].forEach(id => set(id,'—'));
-      set('float-status','CHECK INPUTS'); $('float-status').classList.add('fail'); $('float-results').classList.add('invalid-results');
-    }
-  }
-  ['output-min','output-max'].forEach(id => $(id).addEventListener('input', () => { $('float-preset').value = 'custom'; updateFloat(); }));
-  ['target-float','filler-min','filler-max'].forEach(id => $(id).addEventListener('input', updateFloat));
-  ['owned-count','input-mode'].forEach(id => $(id).addEventListener('change', () => { renderOwned(); updateFloat(); }));
-  $('float-preset').addEventListener('change', () => { if ($('float-preset').value === 'glove') { $('output-min').value = '0.06'; $('output-max').value = '0.80'; } updateFloat(); });
-  $('float-form').addEventListener('submit', event => event.preventDefault());
-
-  function validTelemetry(data) {
-    const numeric = (x, min = 0, max = 1e12, nullable = false) => (nullable && x === null) || (typeof x === 'number' && Number.isFinite(x) && x >= min && x <= max);
-    const count = x => x === null || (numeric(x) && Number.isSafeInteger(x));
-    const stamp = x => typeof x === 'string' && /(?:Z|[+-]\d{2}:\d{2})$/.test(x) && Number.isFinite(Date.parse(x));
-    const text = (x,max) => typeof x === 'string' && x.trim().length > 0 && x.length <= max && !/[\u0000-\u001f]/.test(x);
-    if (!data || data.schema_version !== 1 || !data.window || !data.source || !data.model || !data.funnel || !data.survival || !Array.isArray(data.top_hits) || data.top_hits.length > 50) return false;
-    if (!stamp(data.window.start) || !stamp(data.window.end) || Date.parse(data.window.end)-Date.parse(data.window.start) !== 86400000 || !text(data.window.timezone,80)) return false;
-    if (!['user_supplied_audit','audited_json','ledger_snapshot','legacy_summary'].includes(data.source.kind) || !text(data.source.label,250) || (data.source.verified_at !== null && !stamp(data.source.verified_at))) return false;
-    if (data.model.recovery_factor !== 0.962 || data.model.min_net_profit_usd !== 2.5 || data.model.min_roi_pct !== 6) return false;
-    const f = data.funnel, s = data.survival;
-    if (!['scanned','accepted','rejected'].every(key => count(f[key]))) return false;
-    if (f.scanned !== null ? (f.rejected === null || f.accepted === null || f.accepted + f.rejected !== f.scanned) : f.rejected !== null) return false;
-    if (!['sold_count','observed_count','timing_sample_count','night_sold_count','night_observed_count'].every(key => count(s[key]))) return false;
-    if (!['median_seconds','fastest_seconds'].every(key => numeric(s[key],0,86400,true))) return false;
-    if (s.sold_count !== null && (s.observed_count === null || s.sold_count > s.observed_count)) return false;
-    if (s.timing_sample_count !== null && (s.sold_count === null || s.timing_sample_count > s.sold_count)) return false;
-    if (((s.timing_sample_count === null && data.source.kind !== 'user_supplied_audit') || s.timing_sample_count === 0) && (s.median_seconds !== null || s.fastest_seconds !== null)) return false;
-    if (f.accepted !== null && s.observed_count !== null && f.accepted !== s.observed_count) return false;
-    if (s.night_sold_count !== null && (s.night_observed_count === null || s.sold_count === null || s.night_sold_count > s.night_observed_count || s.night_sold_count > s.sold_count)) return false;
-    if (s.night_observed_count !== null && (s.observed_count === null || s.night_observed_count > s.observed_count)) return false;
-    if (s.fastest_seconds !== null && s.median_seconds !== null && s.fastest_seconds > s.median_seconds) return false;
-    const ids = new Set();
-    const validHits = data.top_hits.every(hit => {
-      if (!hit || !text(hit.market_hash_name,180) || typeof hit.sale_id !== 'string' || !/^\d{1,40}$/.test(hit.sale_id) || ids.has(hit.sale_id)) return false;
-      ids.add(hit.sale_id);
-      if (!numeric(hit.listed_price_usd,0.000001) || !numeric(hit.fair_benchmark_usd,0.000001,1e12,true) || !numeric(hit.estimated_net_profit_usd,-1e12) || !numeric(hit.roi_pct,-100)) return false;
-      if (!['SOLD','OBSERVED'].includes(hit.status) || !numeric(hit.survival_seconds,0,86400,true) || (hit.status !== 'SOLD' && hit.survival_seconds !== null)) return false;
-      return Array.isArray(hit.price_history_usd) && hit.price_history_usd.length <= 20 && hit.price_history_usd.every(value => numeric(value,0.000001));
-    });
-    if (!validHits || (s.observed_count !== null && data.top_hits.length > s.observed_count) || (s.sold_count !== null && data.top_hits.filter(hit => hit.status === 'SOLD').length > s.sold_count)) return false;
-    return Array.isArray(data.notes) && data.notes.length <= 25 && data.notes.every(note => text(note,1200));
-  }
-  function telemetryMetrics(data) {
-    const f = data.funnel, s = data.survival;
-    const countText = value => value === null ? '—' : value.toLocaleString('en-US');
-    return {
-      scanned: countText(f.scanned), rejected: countText(f.rejected), accepted: countText(f.accepted),
-      acceptedPct: f.scanned !== null && f.scanned > 0 && f.accepted !== null ? (f.accepted/f.scanned*100).toFixed(3) + '%' : '—',
-      soldRatio: s.sold_count === null && s.observed_count === null ? '—' : countText(s.sold_count) + '/' + countText(s.observed_count),
-      median: s.median_seconds === null ? '—' : s.median_seconds.toFixed(2) + 's'
-    };
-  }
+/* Public calculators and dated, read-only telemetry. No cookies or analytics. */
+(function () {
+  'use strict';
+  const M = typeof window !== 'undefined' ? window.GrowthMath : null;
+  const $ = id => document.getElementById(id);
+  const money = value => value === null || !Number.isFinite(value) ? '—' : new Intl.NumberFormat('en-US', {style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 2}).format(value);
+  const signedMoney = value => value === null || !Number.isFinite(value) ? '—' : (value >= 0 ? '+' : '−') + money(Math.abs(value));
+  const percent = value => value === null || !Number.isFinite(value) ? '—' : value.toFixed(2) + '%';
+  const number = id => $(id).value === '' ? NaN : Number($(id).value);
+  const set = (id, value) => { $(id).textContent = value; };
+  const error = (id, text) => { set(id, text || ''); $(id).hidden = !text; };
+  const positiveStyle = (element, value) => { element.classList.toggle('negative', value < 0); element.classList.toggle('positive', value >= 0); };
+  const BASELINE = {
+    schema_version: 1,
+    window: {start:'2026-10-21T10:46:00+08:00',end:'2026-10-22T10:46:00+08:00',timezone:'Asia/Shanghai'},
+    source: {kind:'user_supplied_audit',label:'Model 4 fixed 24h PIT audit — user-supplied baseline',url:null,verified_at:null},
+    model: {recovery_factor:0.962,min_net_profit_usd:2.5,min_roi_pct:6},
+    funnel: {scanned:13649,rejected:13635,accepted:14,rejected_pct:99.897,accepted_pct:0.103},
+    survival: {sold_count:12,observed_count:14,sold_pct:85.71,median_seconds:55.11,fastest_seconds:9.96,timing_sample_count:null,night_sold_count:6,night_observed_count:6},
+    top_hits: [
+      {sale_id:'61317316',market_hash_name:'★ Butterfly Knife | Tiger Tooth (Factory New)',listed_price_usd:891.43,fair_benchmark_usd:1025.23,estimated_net_profit_usd:94.84,roi_pct:10.64,survival_seconds:44.8,status:'SOLD',price_history_usd:[988.26,939.72,891.43]},
+      {sale_id:'61372664',market_hash_name:'★ Driver Gloves | Imperial Plaid (Minimal Wear)',listed_price_usd:247.37,fair_benchmark_usd:281.03,estimated_net_profit_usd:22.98,roi_pct:9.29,survival_seconds:150.9,status:'SOLD',price_history_usd:[]},
+      {sale_id:'61365742',market_hash_name:'StatTrak™ AWP | Printstream (Minimal Wear)',listed_price_usd:95.96,fair_benchmark_usd:112.79,estimated_net_profit_usd:12.58,roi_pct:13.11,survival_seconds:56.3,status:'SOLD',price_history_usd:[]}
+    ],
+    notes: [
+      'Historical baseline supplied by the project owner; raw audit has not been independently revalidated here. Window timezone is inferred as UTC+08:00 from the supplied Beijing-time context.',
+      'Funnel percentages are calculated from the supplied counts: 13,635 / 13,649 = 99.897% filtered and 14 / 13,649 = 0.103% accepted. These differ from the original reported 99.898% / 0.102%.',
+      'Printstream preserves the reported $12.58 / 13.11%. Applying 0.962 to the displayed benchmark gives $12.54 / 13.07%; the calculator always uses the formula.',
+      'The source reports median/fastest timing but does not disclose the valid timing sample count; that count remains unknown.',
+      'SOLD is a market observation. Estimated spreads are not proof of a completed profitable resale. Filtered events are not necessarily fraudulent listings.'
+    ]
+  };
+
+  if (typeof module === 'object' && module.exports) {
+    module.exports = {validTelemetry,telemetryMetrics,money};
+    return;
+  }
+
+  function showTab(name, updateHash) {
+    const selected = name === 'float' ? 'float' : 'cashout';
+    document.querySelectorAll('[data-tab]').forEach(button => {
+      const active = button.dataset.tab === selected;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-selected', String(active));
+      button.tabIndex = active ? 0 : -1;
+      $(button.dataset.tab).hidden = !active;
+    });
+    if (updateHash && location.hash !== '#' + selected) history.replaceState(null, '', '#' + selected);
+  }
+  document.querySelectorAll('[data-tab]').forEach(button => {
+    button.addEventListener('click', () => showTab(button.dataset.tab, true));
+    button.addEventListener('keydown', event => {
+      if (!['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) return;
+      event.preventDefault();
+      const next = event.key === 'Home' ? 'cashout' : event.key === 'End' ? 'float' : button.dataset.tab === 'cashout' ? 'float' : 'cashout';
+      showTab(next, true); $('tab-' + next).focus();
+    });
+  });
+  window.addEventListener('hashchange', () => { if (['#float','#cashout'].includes(location.hash)) showTab(location.hash.slice(1), false); });
+  showTab(location.hash.slice(1), false);
+
+  function updateFees() {
+    try {
+      const fair = number('fair'), listed = number('listed');
+      for (const platform of ['skinport','csfloat']) {
+        const sellerFee = number(platform === 'skinport' ? 'skinport-tier' : 'csfloat-seller');
+        const result = M.compareCashout(fair, listed, sellerFee, number(platform + '-payout'));
+        set(platform + '-recovery', money(result.afterFee));
+        set(platform + '-net', signedMoney(result.netProfit));
+        set(platform + '-roi', percent(result.roiPct));
+        positiveStyle($(platform + '-net'), result.netProfit);
+      }
+      error('fee-error', '');
+    } catch (e) {
+      error('fee-error', e.message);
+      for (const platform of ['skinport','csfloat']) for (const field of ['recovery','net','roi']) set(platform + '-' + field, '—');
+    }
+  }
+  function updateCashout() {
+    try {
+      const result = M.calculateSnipe(number('fair'), number('listed'));
+      set('net-profit', signedMoney(result.netProfit));
+      set('net-roi', (result.roiPct >= 0 ? '+' : '') + percent(result.roiPct));
+      positiveStyle($('net-profit'), result.netProfit);
+      positiveStyle($('net-roi'), result.roiPct);
+      set('safe-price', result.feasible ? money(result.maxSafePrice) : 'No valid buy price');
+      set('after-fee', money(result.afterFee));
+      set('threshold-status', result.passes ? 'WITHIN MODEL LIMIT' : 'OUTSIDE MODEL LIMIT');
+      $('threshold-status').classList.toggle('fail', !result.passes);
+      const gap = result.maxSafePrice - number('listed');
+      set('headroom', !result.feasible ? 'Benchmark too low to meet both thresholds' : money(Math.abs(gap)) + (gap >= 0 ? ' below buy limit' : ' above buy limit'));
+      error('cashout-error', '');
+      $('cashout-results').classList.remove('invalid-results');
+    } catch (e) {
+      error('cashout-error', e.message);
+      ['net-profit','net-roi','safe-price','after-fee','headroom'].forEach(id => set(id, '—'));
+      set('threshold-status', 'CHECK INPUTS');
+      $('threshold-status').classList.add('fail');
+      $('cashout-results').classList.add('invalid-results');
+    }
+    updateFees();
+  }
+  ['fair','listed'].forEach(id => {
+    $(id).addEventListener('input', () => { $(id + '-range').value = $(id).value; updateCashout(); });
+    $(id + '-range').addEventListener('input', () => { $(id).value = $(id + '-range').value; updateCashout(); });
+  });
+  ['skinport-tier','skinport-payout','csfloat-seller','csfloat-payout'].forEach(id => $(id).addEventListener('input', updateFees));
+  $('cashout-form').addEventListener('submit', event => event.preventDefault());
+
+  const ownedValues = Array.from({length:4}, () => ({normalized:'0.005',actual:'0.005',min:'0',max:'1'}));
+  function renderOwned() {
+    const count = number('owned-count'), absolute = $('input-mode').value === 'absolute';
+    const container = $('owned-materials'); container.replaceChildren();
+    for (let i = 0; i < count; i++) {
+      const row = document.createElement('div'); row.className = 'owned-row';
+      const heading = document.createElement('span'); heading.className = 'owned-row-title'; heading.textContent = 'OWNED INPUT ' + (i + 1); row.append(heading);
+      const grid = document.createElement('div'); grid.className = 'input-grid' + (absolute ? ' float-three' : '');
+      for (const [key,label] of absolute ? [['actual','Actual float'],['min','Skin minimum'],['max','Skin maximum']] : [['normalized','Normalized float (0–1)']]) {
+        const field = document.createElement('div'); field.className = 'field';
+        const input = document.createElement('input'); input.id = 'owned-' + i + '-' + key; input.type = 'number'; input.min = '0'; input.max = '1'; input.step = '0.000001'; input.inputMode = 'decimal'; input.value = ownedValues[i][key];
+        const labelElement = document.createElement('label'); labelElement.htmlFor = input.id; labelElement.textContent = label;
+        input.addEventListener('input', () => { ownedValues[i][key] = input.value; updateFloat(); });
+        field.append(labelElement, input); grid.append(field);
+      }
+      row.append(grid);
+      const normalized = document.createElement('span'); normalized.className = 'owned-normalized'; normalized.id = 'normalized-' + i; row.append(normalized);
+      container.append(row);
+    }
+  }
+  function conservative(value, digits = 5) {
+    if (value === 0) return '0.00000';
+    if (value > 0 && value < Math.pow(10, -digits)) {
+      const exponent = Math.floor(Math.log10(value));
+      const factor = Math.pow(10, exponent);
+      return (Math.floor((value / factor) * 10000) / 10000).toFixed(4) + 'e' + exponent;
+    }
+    return (Math.floor(value * Math.pow(10,digits)) / Math.pow(10,digits)).toFixed(digits);
+  }
+  function updateFloat() {
+    try {
+      const count = number('owned-count'), absolute = $('input-mode').value === 'absolute';
+      const owned = ownedValues.slice(0,count).map((entry,index) => {
+        const read = key => entry[key] === '' ? NaN : Number(entry[key]);
+        const normalized = absolute ? M.normalizeFloat(read('actual'),read('min'),read('max')) : read('normalized');
+        set('normalized-' + index, absolute ? 'Normalized: ' + (Number.isFinite(normalized) ? normalized.toFixed(8) : '—') : '');
+        return absolute ? {actual:read('actual'),min:read('min'),max:read('max')} : normalized;
+      });
+      const result = M.calculateFillers(number('output-min'),number('output-max'),number('target-float'),owned,number('filler-min'),number('filler-max'));
+      set('required-average', '< ' + conservative(result.requiredAverage));
+      $('required-average').title = 'Exact computed upper bound: ' + result.requiredAverage.toPrecision(16);
+      set('required-average-pct', 'Normalized float · below ' + conservative(result.requiredAverage * 100,4) + '%');
+      set('remaining-count', 'Across ' + result.remaining + ' remaining input' + (result.remaining === 1 ? '' : 's'));
+      set('filler-range-note', 'For fillers with range ' + number('filler-min').toFixed(2) + '–' + number('filler-max').toFixed(2));
+      if (result.feasible) {
+        const operator = result.allFillersAllowed ? '≤ ' : '< ';
+        set('filler-normalized', operator + conservative(result.maxFillerNormalized));
+        set('filler-absolute', operator + conservative(result.maxFillerFloat));
+        $('filler-normalized').title = 'Computed upper bound: ' + result.maxFillerNormalized.toPrecision(16);
+        $('filler-absolute').title = 'Computed upper bound: ' + result.maxFillerFloat.toPrecision(16);
+        set('float-status', result.allFillersAllowed ? 'FULL RANGE AVAILABLE' : 'BUDGET AVAILABLE');
+        set('float-budget-note', result.allFillersAllowed ? 'Every remaining normalized float from 0 to 1 fits this target with the entered owned materials.' : 'Individual fillers may vary; their average must remain strictly below the limit. Displayed bounds are conservatively truncated.');
+      } else {
+        set('filler-normalized','Not reachable'); set('filler-absolute','No valid fillers');
+        set('float-status','TARGET UNREACHABLE');
+        set('float-budget-note', result.reason === 'target_at_or_below_output_minimum' ? 'The strict target must be above the output’s minimum possible float.' : 'Your owned materials already exhaust the float budget, even if every remaining filler has normalized float 0.');
+      }
+      $('float-status').classList.toggle('fail', !result.feasible);
+      error('float-error',''); $('float-results').classList.remove('invalid-results');
+    } catch (e) {
+      error('float-error',e.message);
+      ['required-average','required-average-pct','filler-normalized','remaining-count','filler-absolute','filler-range-note','float-budget-note'].forEach(id => set(id,'—'));
+      set('float-status','CHECK INPUTS'); $('float-status').classList.add('fail'); $('float-results').classList.add('invalid-results');
+    }
+  }
+  ['output-min','output-max'].forEach(id => $(id).addEventListener('input', () => { $('float-preset').value = 'custom'; updateFloat(); }));
+  ['target-float','filler-min','filler-max'].forEach(id => $(id).addEventListener('input', updateFloat));
+  ['owned-count','input-mode'].forEach(id => $(id).addEventListener('change', () => { renderOwned(); updateFloat(); }));
+  $('float-preset').addEventListener('change', () => { if ($('float-preset').value === 'glove') { $('output-min').value = '0.06'; $('output-max').value = '0.80'; } updateFloat(); });
+  $('float-form').addEventListener('submit', event => event.preventDefault());
+
+  function validTelemetry(data) {
+    const numeric = (x, min = 0, max = 1e12, nullable = false) => (nullable && x === null) || (typeof x === 'number' && Number.isFinite(x) && x >= min && x <= max);
+    const count = x => x === null || (numeric(x) && Number.isSafeInteger(x));
+    const stamp = x => typeof x === 'string' && /(?:Z|[+-]\d{2}:\d{2})$/.test(x) && Number.isFinite(Date.parse(x));
+    const text = (x,max) => typeof x === 'string' && x.trim().length > 0 && x.length <= max && !/[\u0000-\u001f]/.test(x);
+    if (!data || data.schema_version !== 1 || !data.window || !data.source || !data.model || !data.funnel || !data.survival || !Array.isArray(data.top_hits) || data.top_hits.length > 50) return false;
+    if (!stamp(data.window.start) || !stamp(data.window.end) || Date.parse(data.window.end)-Date.parse(data.window.start) !== 86400000 || !text(data.window.timezone,80)) return false;
+    if (!['user_supplied_audit','audited_json','ledger_snapshot','legacy_summary'].includes(data.source.kind) || !text(data.source.label,250) || (data.source.verified_at !== null && !stamp(data.source.verified_at))) return false;
+    if (data.model.recovery_factor !== 0.962 || data.model.min_net_profit_usd !== 2.5 || data.model.min_roi_pct !== 6) return false;
+    const f = data.funnel, s = data.survival;
+    if (!['scanned','accepted','rejected'].every(key => count(f[key]))) return false;
+    if (f.scanned !== null ? (f.rejected === null || f.accepted === null || f.accepted + f.rejected !== f.scanned) : f.rejected !== null) return false;
+    if (!['sold_count','observed_count','timing_sample_count','night_sold_count','night_observed_count'].every(key => count(s[key]))) return false;
+    if (!['median_seconds','fastest_seconds'].every(key => numeric(s[key],0,86400,true))) return false;
+    if (s.sold_count !== null && (s.observed_count === null || s.sold_count > s.observed_count)) return false;
+    if (s.timing_sample_count !== null && (s.sold_count === null || s.timing_sample_count > s.sold_count)) return false;
+    if (((s.timing_sample_count === null && data.source.kind !== 'user_supplied_audit') || s.timing_sample_count === 0) && (s.median_seconds !== null || s.fastest_seconds !== null)) return false;
+    if (f.accepted !== null && s.observed_count !== null && f.accepted !== s.observed_count) return false;
+    if (s.night_sold_count !== null && (s.night_observed_count === null || s.sold_count === null || s.night_sold_count > s.night_observed_count || s.night_sold_count > s.sold_count)) return false;
+    if (s.night_observed_count !== null && (s.observed_count === null || s.night_observed_count > s.observed_count)) return false;
+    if (s.fastest_seconds !== null && s.median_seconds !== null && s.fastest_seconds > s.median_seconds) return false;
+    const ids = new Set();
+    const validHits = data.top_hits.every(hit => {
+      if (!hit || !text(hit.market_hash_name,180) || typeof hit.sale_id !== 'string' || !/^\d{1,40}$/.test(hit.sale_id) || ids.has(hit.sale_id)) return false;
+      ids.add(hit.sale_id);
+      if (!numeric(hit.listed_price_usd,0.000001) || !numeric(hit.fair_benchmark_usd,0.000001,1e12,true) || !numeric(hit.estimated_net_profit_usd,-1e12) || !numeric(hit.roi_pct,-100)) return false;
+      if (!['SOLD','OBSERVED'].includes(hit.status) || !numeric(hit.survival_seconds,0,86400,true) || (hit.status !== 'SOLD' && hit.survival_seconds !== null)) return false;
+      return Array.isArray(hit.price_history_usd) && hit.price_history_usd.length <= 20 && hit.price_history_usd.every(value => numeric(value,0.000001));
+    });
+    if (!validHits || (s.observed_count !== null && data.top_hits.length > s.observed_count) || (s.sold_count !== null && data.top_hits.filter(hit => hit.status === 'SOLD').length > s.sold_count)) return false;
+    return Array.isArray(data.notes) && data.notes.length <= 25 && data.notes.every(note => text(note,1200));
+  }
+  function telemetryMetrics(data) {
+    const f = data.funnel, s = data.survival;
+    const countText = value => value === null ? '—' : value.toLocaleString('en-US');
+    return {
+      scanned: countText(f.scanned), rejected: countText(f.rejected), accepted: countText(f.accepted),
+      acceptedPct: f.scanned !== null && f.scanned > 0 && f.accepted !== null ? (f.accepted/f.scanned*100).toFixed(3) + '%' : '—',
+      soldRatio: s.sold_count === null && s.observed_count === null ? '—' : countText(s.sold_count) + '/' + countText(s.observed_count),
+      median: s.median_seconds === null ? '—' : s.median_seconds.toFixed(2) + 's'
+    };
+  }
   function renderTelemetry(data, fallback) {
-    const f = data.funnel, s = data.survival;
-    const timezone = data.window.timezone || 'UTC';
-    let dateFormat;
-    try { dateFormat = new Intl.DateTimeFormat('en-GB',{year:'numeric',month:'short',day:'2-digit',hour:'2-digit',minute:'2-digit',timeZone:timezone,timeZoneName:'shortOffset',hourCycle:'h23'}); } catch (_) { dateFormat = new Intl.DateTimeFormat('en-GB',{year:'numeric',month:'short',day:'2-digit',hour:'2-digit',minute:'2-digit',timeZone:'UTC',timeZoneName:'shortOffset',hourCycle:'h23'}); }
-    set('telemetry-window',dateFormat.format(new Date(data.window.start)) + ' → ' + dateFormat.format(new Date(data.window.end)));
-    const userSupplied = data.source.kind === 'user_supplied_audit';
-    set('source-badge',fallback ? 'HISTORICAL REFERENCE / FALLBACK' : userSupplied ? 'HISTORICAL REFERENCE / PROVIDED AUDIT' : 'DATED AUDIT SNAPSHOT');
-    const metrics = telemetryMetrics(data);
-    for (const key of ['scanned','rejected','accepted']) set(key,metrics[key]);
-    set('accepted-pct',metrics.acceptedPct);
-    set('sold-ratio',metrics.soldRatio);
-    set('median',metrics.median);
-    document.querySelector('.funnel-bar span').style.width = f.scanned === null ? '0%' : '100%';
-    set('provenance','Source: ' + data.source.label + '. ' + (data.source.verified_at ? 'Source verification recorded: ' + data.source.verified_at + '. ' : 'Raw audit not independently revalidated here. ') + (fallback ? 'Static reference shown because a valid telemetry update is unavailable. ' : '') + 'This is a dated snapshot, not a live feed.');
-    set('cashout-hook',s.median_seconds === null ? 'Your buy limit is ready. Explore the delayed feed to understand the signal format; this snapshot does not provide a verified median sold lifespan.' : 'Your buy limit is ready. In this dated sample, sold signals had a median observed lifespan of ' + s.median_seconds.toFixed(2) + ' seconds.');
-    const table = $('top-hits'); table.replaceChildren();
-    data.top_hits.forEach(hit => {
-      const row = document.createElement('tr');
-      const name = document.createElement('th'); name.scope = 'row'; name.textContent = hit.market_hash_name;
-      const id = document.createElement('small'); id.textContent = '#' + hit.sale_id; name.append(id); row.append(name);
-      const values = [money(hit.listed_price_usd),money(hit.fair_benchmark_usd),signedMoney(hit.estimated_net_profit_usd),percent(hit.roi_pct),hit.status === 'SOLD' && hit.survival_seconds !== null ? hit.survival_seconds.toFixed(1) + 's' : hit.status];
-      values.forEach((value,index) => { const cell = document.createElement('td'); cell.textContent = value; if(index===2) positiveStyle(cell,hit.estimated_net_profit_usd); if(index===4) cell.className = 'table-sold-cell'; row.append(cell); });
-      table.append(row);
-    });
-    if (!data.top_hits.length) { const row = document.createElement('tr'),cell = document.createElement('td'); cell.colSpan = 6; cell.textContent = 'No selected signals are available for this window.'; row.append(cell); table.append(row); }
-    const featured = data.top_hits[0];
-    document.querySelector('.featured-hit').hidden = !featured;
-    if (featured) {
-      set('featured-id',featured.sale_id); set('featured-name',featured.market_hash_name.replace(/^★\s*/,''));
-      set('featured-history',featured.price_history_usd.length ? featured.price_history_usd.map(money).join(' → ') : money(featured.listed_price_usd) + ' listed');
-      set('featured-profit',signedMoney(featured.estimated_net_profit_usd));
-      positiveStyle($('featured-profit'),featured.estimated_net_profit_usd);
-      set('featured-sold',featured.status + (featured.status === 'SOLD' && featured.survival_seconds !== null ? ' / ' + featured.survival_seconds.toFixed(1) + 's' : ''));
-    }
-    const notes = $('data-notes'); notes.replaceChildren();
-    (Array.isArray(data.notes) ? data.notes.slice(0,25) : []).forEach(note => { if(typeof note === 'string') {const p=document.createElement('p');p.textContent=note.slice(0,1200);notes.append(p);} });
-  }
-  async function loadTelemetry() {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(),4000);
-    try {
-      const response = await fetch('data/latest_telemetry.json',{cache:'no-cache',signal:controller.signal});
-      if(!response.ok) return;
-      const body = await response.text();
-      if(body.length > 500000) return;
-      const data = JSON.parse(body);
-      if(validTelemetry(data)) renderTelemetry(data,false);
-    } catch (_) { /* Explicit historical fallback remains visible. */ }
-    finally {clearTimeout(timeout);}
-  }
-  renderOwned(); updateCashout(); updateFloat(); renderTelemetry(BASELINE,true); loadTelemetry();
-})();
+    if (!$('telemetry')) return;
+    const f = data.funnel, s = data.survival;
+    const timezone = data.window.timezone || 'UTC';
+    let dateFormat;
+    try { dateFormat = new Intl.DateTimeFormat('en-GB',{year:'numeric',month:'short',day:'2-digit',hour:'2-digit',minute:'2-digit',timeZone:timezone,timeZoneName:'shortOffset',hourCycle:'h23'}); } catch (_) { dateFormat = new Intl.DateTimeFormat('en-GB',{year:'numeric',month:'short',day:'2-digit',hour:'2-digit',minute:'2-digit',timeZone:'UTC',timeZoneName:'shortOffset',hourCycle:'h23'}); }
+    set('telemetry-window',dateFormat.format(new Date(data.window.start)) + ' → ' + dateFormat.format(new Date(data.window.end)));
+    const userSupplied = data.source.kind === 'user_supplied_audit';
+    set('source-badge',fallback ? 'HISTORICAL REFERENCE / FALLBACK' : userSupplied ? 'HISTORICAL REFERENCE / PROVIDED AUDIT' : 'DATED AUDIT SNAPSHOT');
+    const metrics = telemetryMetrics(data);
+    for (const key of ['scanned','rejected','accepted']) set(key,metrics[key]);
+    set('accepted-pct',metrics.acceptedPct);
+    set('sold-ratio',metrics.soldRatio);
+    set('median',metrics.median);
+    document.querySelector('.funnel-bar span').style.width = f.scanned === null ? '0%' : '100%';
+    set('provenance','Source: ' + data.source.label + '. ' + (data.source.verified_at ? 'Source verification recorded: ' + data.source.verified_at + '. ' : 'Raw audit not independently revalidated here. ') + (fallback ? 'Static reference shown because a valid telemetry update is unavailable. ' : '') + 'This is a dated snapshot, not a live feed.');
+    set('cashout-hook',s.median_seconds === null ? 'Your buy limit is ready. Explore the delayed feed to understand the signal format; this snapshot does not provide a verified median sold lifespan.' : 'Your buy limit is ready. In this dated sample, sold signals had a median observed lifespan of ' + s.median_seconds.toFixed(2) + ' seconds.');
+    const table = $('top-hits'); table.replaceChildren();
+    data.top_hits.forEach(hit => {
+      const row = document.createElement('tr');
+      const name = document.createElement('th'); name.scope = 'row'; name.textContent = hit.market_hash_name;
+      const id = document.createElement('small'); id.textContent = '#' + hit.sale_id; name.append(id); row.append(name);
+      const values = [money(hit.listed_price_usd),money(hit.fair_benchmark_usd),signedMoney(hit.estimated_net_profit_usd),percent(hit.roi_pct),hit.status === 'SOLD' && hit.survival_seconds !== null ? hit.survival_seconds.toFixed(1) + 's' : hit.status];
+      values.forEach((value,index) => { const cell = document.createElement('td'); cell.textContent = value; if(index===2) positiveStyle(cell,hit.estimated_net_profit_usd); if(index===4) cell.className = 'table-sold-cell'; row.append(cell); });
+      table.append(row);
+    });
+    if (!data.top_hits.length) { const row = document.createElement('tr'),cell = document.createElement('td'); cell.colSpan = 6; cell.textContent = 'No selected signals are available for this window.'; row.append(cell); table.append(row); }
+    const featured = data.top_hits[0];
+    document.querySelector('.featured-hit').hidden = !featured;
+    if (featured) {
+      set('featured-id',featured.sale_id); set('featured-name',featured.market_hash_name.replace(/^★\s*/,''));
+      set('featured-history',featured.price_history_usd.length ? featured.price_history_usd.map(money).join(' → ') : money(featured.listed_price_usd) + ' listed');
+      set('featured-profit',signedMoney(featured.estimated_net_profit_usd));
+      positiveStyle($('featured-profit'),featured.estimated_net_profit_usd);
+      set('featured-sold',featured.status + (featured.status === 'SOLD' && featured.survival_seconds !== null ? ' / ' + featured.survival_seconds.toFixed(1) + 's' : ''));
+    }
+    const notes = $('data-notes'); notes.replaceChildren();
+    (Array.isArray(data.notes) ? data.notes.slice(0,25) : []).forEach(note => { if(typeof note === 'string') {const p=document.createElement('p');p.textContent=note.slice(0,1200);notes.append(p);} });
+  }
+  async function loadTelemetry() {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(),4000);
+    try {
+      const response = await fetch('data/latest_telemetry.json',{cache:'no-cache',signal:controller.signal});
+      if(!response.ok) return;
+      const body = await response.text();
+      if(body.length > 500000) return;
+      const data = JSON.parse(body);
+      if(validTelemetry(data)) renderTelemetry(data,false);
+    } catch (_) { /* Explicit historical fallback remains visible. */ }
+    finally {clearTimeout(timeout);}
+  }
+  renderOwned(); updateCashout(); updateFloat(); renderTelemetry(BASELINE,true); loadTelemetry();
+})();
 
 
-/* Buildless sequential AnimatedList adaptation; original calculator code above is unchanged.
- * Source: magicuidesign/magicui @ efe76fc5755eca1142dd4f74c1d6f0ace2887e3c
- * MIT License
- * Copyright (c) Magic UI
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- * SOFTWARE.
- */
+/* Continuous, unique-node stream. Local static content; no network or motion gate. */
 (() => {
   'use strict';
   if (typeof document === 'undefined') return;
   const root = document.getElementById('delayed-feed-window');
-  if (!root) return;
-  const viewport = root.querySelector('#stream-scroll');
-  const toggle = root.querySelector('#stream-toggle');
-  const label = root.querySelector('#stream-playback-label');
-  const cards = Array.from(root.querySelectorAll('.stream-message'));
-  if (!viewport || !toggle || !label || !cards.length) return;
-  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
-  const delay = 6500;
-  let index = 0;
-  let timer = null;
-  let inView = false;
-  let hover = false;
-  let focused = false;
-  let userPaused = reducedMotion.matches;
-  let completed = false;
-  let started = false;
-  let observer;
-  toggle.hidden = false;
-
-  function clearTimer() {
-    if (timer !== null) window.clearTimeout(timer);
-    timer = null;
+  const viewport = document.getElementById('stream-scroll');
+  const list = root && root.querySelector('.stream-message-list');
+  if (!root || !viewport || !list || list.children.length < 2) return;
+  const speed = 19; // pixels per second
+  const heldPointers = new Set();
+  let hovered = false;
+  let touches = 0;
+  let suppressMouseUntil = 0;
+  let previous = null;
+  let frame = null;
+  let rotations = 0;
+  let position = viewport.scrollTop;
+  let lastWritten = viewport.scrollTop;
+  const count = list.children.length;
+  root.dataset.streamCards = String(count);
+  root.dataset.streamRotations = '0';
+  root.dataset.streamCycles = '0';
+  root.dataset.streamSpeed = String(speed);
+  function state() {
+    const holding = heldPointers.size > 0 || touches > 0;
+    root.dataset.streamState = holding || hovered ? 'paused' : 'playing';
+    root.dataset.streamReason = holding ? 'hold' : hovered ? 'hover' : 'none';
+    return holding || hovered;
   }
-  function reason() {
-    if (completed) return 'complete';
-    if (userPaused) return 'manual';
-    if (document.hidden) return 'background';
-    if (!inView) return 'offscreen';
-    if (hover) return 'hover';
-    if (focused) return 'focus';
-    return '';
-  }
-  function showCard(animate) {
-    cards.forEach((card, position) => {
-      const current = position === index;
-      card.classList.toggle('is-current', current);
-      card.classList.remove('is-entering');
-      if (current) card.setAttribute('aria-current', 'true');
-      else card.removeAttribute('aria-current');
-    });
-    const card = cards[index];
-    if (animate && !reducedMotion.matches) card.classList.add('is-entering');
-    viewport.scrollTo({top: Math.max(0, card.offsetTop - 15), behavior: animate && !reducedMotion.matches ? 'smooth' : 'auto'});
-  }
-  function render() {
-    clearTimer();
-    const pausedBy = reason();
-    root.dataset.streamState = completed ? 'complete' : pausedBy ? 'paused' : 'playing';
-    root.dataset.streamReason = pausedBy || 'none';
-    root.dataset.streamIndex = String(index + 1);
-    toggle.textContent = userPaused || completed ? 'Replay Stream' : 'Pause Stream';
-    toggle.setAttribute('aria-label', toggle.textContent);
-    const progress = (index + 1) + ' / ' + cards.length;
-    if (completed) label.textContent = 'Replay complete · ' + cards.length + ' verified cards';
-    else if (userPaused) label.textContent = 'Paused · browse all ' + cards.length + ' verified cards';
-    else if (pausedBy === 'hover' || pausedBy === 'focus') label.textContent = 'Paused while browsing · ' + progress;
-    else if (pausedBy) label.textContent = 'Historical replay ready · ' + cards.length + ' cards';
-    else label.textContent = 'Historical replay · ' + progress + ' · #' + cards[index].dataset.postId;
-    if (pausedBy) {
-      // Cancel an in-flight smooth scroll without stealing a user's scroll position.
-      viewport.scrollTo({top: viewport.scrollTop, behavior: 'auto'});
-      return;
+  function recycle() {
+    let limit = count;
+    while (limit-- > 0) {
+      const first = list.firstElementChild;
+      const gap = parseFloat(getComputedStyle(list).rowGap) || 0;
+      const distance = first.getBoundingClientRect().height + gap;
+      if (distance <= 0 || viewport.scrollTop < first.offsetTop + distance) break;
+      list.append(first);
+      position -= distance;
+      viewport.scrollTop = position;
+      lastWritten = viewport.scrollTop;
+      rotations += 1;
+      root.dataset.streamRotations = String(rotations);
+      root.dataset.streamCycles = String(Math.floor(rotations / count));
     }
-    if (!started) {
-      started = true;
-      showCard(true);
-    }
-    timer = window.setTimeout(() => {
-      timer = null;
-      if (reason()) { render(); return; }
-      if (index === cards.length - 1) completed = true;
-      else { index += 1; showCard(true); }
-      render();
-    }, delay);
   }
-  function pauseForBrowse() {
-    userPaused = true;
-    render();
-  }
-  toggle.addEventListener('click', () => {
-    if (userPaused || completed) {
-      userPaused = false;
-      completed = false;
-      index = 0;
-      started = true;
-      showCard(!reducedMotion.matches);
-    } else userPaused = true;
-    render();
-  });
-  viewport.addEventListener('pointerenter', event => {
-    if (event.pointerType === 'mouse') { hover = true; render(); }
-  });
-  viewport.addEventListener('pointerleave', event => {
-    if (event.pointerType === 'mouse') { hover = false; render(); }
-  });
-  // Touch, wheel, scrollbar dragging and keyboard navigation latch Pause until Replay.
-  // No preventDefault, scroll interception, fetching, cloning, or hidden history.
-  viewport.addEventListener('pointerdown', pauseForBrowse, {passive: true});
-  viewport.addEventListener('wheel', pauseForBrowse, {passive: true});
-  viewport.addEventListener('keydown', event => {
-    if (['ArrowUp','ArrowDown','PageUp','PageDown','Home','End',' '].includes(event.key)) pauseForBrowse();
-  });
-  viewport.addEventListener('focusin', () => { focused = true; render(); });
-  viewport.addEventListener('focusout', event => {
-    focused = viewport.contains(event.relatedTarget);
-    render();
-  });
-  document.addEventListener('visibilitychange', render);
-  reducedMotion.addEventListener('change', () => {
-    if (reducedMotion.matches) userPaused = true;
-    render();
-  });
-  if ('IntersectionObserver' in window) {
-    observer = new IntersectionObserver(entries => {
-      inView = entries[0].isIntersecting && entries[0].intersectionRatio >= 0.12;
-      render();
-    }, {threshold: 0.12});
-    observer.observe(viewport);
-  } else inView = true;
-  window.addEventListener('pageshow', event => {
-    if (event.persisted) {
-      if (observer) observer.observe(viewport);
-      render();
+  function tick(now) {
+    const elapsed = previous === null ? 0 : Math.min((now - previous) / 1000, 0.1);
+    previous = now;
+    if (!state()) {
+      if (Math.abs(viewport.scrollTop - lastWritten) > 2) position = viewport.scrollTop;
+      position += elapsed * speed;
+      viewport.scrollTop = position;
+      lastWritten = viewport.scrollTop;
+      recycle();
+    } else {
+      position = viewport.scrollTop;
+      lastWritten = viewport.scrollTop;
     }
+    root.dataset.streamOffset = viewport.scrollTop.toFixed(2);
+    frame = window.requestAnimationFrame(tick);
+  }
+  root.addEventListener('mouseenter', () => {
+    if (performance.now() >= suppressMouseUntil) hovered = true;
+    state();
   });
+  root.addEventListener('mouseleave', () => { hovered = false; previous = null; state(); });
+  root.addEventListener('pointerdown', event => {
+    if (event.pointerType !== 'mouse') {
+      heldPointers.add(event.pointerId);
+      hovered = false;
+      suppressMouseUntil = performance.now() + 1200;
+      state();
+    }
+  }, {passive:true});
+  function release(event) {
+    heldPointers.delete(event.pointerId);
+    previous = null;
+    state();
+  }
+  window.addEventListener('pointerup', release, {passive:true});
+  window.addEventListener('pointercancel', release, {passive:true});
+  root.addEventListener('touchstart', event => {
+    touches = event.touches.length;
+    hovered = false;
+    suppressMouseUntil = performance.now() + 1200;
+    state();
+  }, {passive:true});
+  function releaseTouch(event) {
+    touches = event.touches.length;
+    suppressMouseUntil = performance.now() + 1200;
+    previous = null;
+    state();
+  }
+  window.addEventListener('touchend', releaseTouch, {passive:true});
+  window.addEventListener('touchcancel', releaseTouch, {passive:true});
   window.addEventListener('pagehide', () => {
-    clearTimer();
-    if (observer) observer.disconnect();
-  }, {once: true});
-  showCard(false);
-  render();
+    if (frame !== null) window.cancelAnimationFrame(frame);
+    frame = null;
+  });
+  window.addEventListener('pageshow', () => {
+    if (frame === null) { previous = null; frame = window.requestAnimationFrame(tick); }
+  });
+  state();
+  frame = window.requestAnimationFrame(tick);
 })();
