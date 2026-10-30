@@ -50,4 +50,4 @@ SOLD means an observed market sale, not a purchase or resale by this service.
 
 [Skinport vs CSFloat cashout and normalized float calculators](https://andrewkreil.github.io/cs2-ticker/)
 
-[Join Free 15m Discord Feed](https://discord.gg/688PFWemg) · [Telegram public evidence](https://t.me/s/cs2_snipe_radar_free) · [VIP service](https://whop.com/snipe-radar/)
+[Join Free 15m Discord Feed](https://discord.gg/XVgpjRRxK6) · [Telegram public evidence](https://t.me/s/cs2_snipe_radar_free) · [VIP service](https://whop.com/snipe-radar/)

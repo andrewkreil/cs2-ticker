@@ -85,7 +85,7 @@
   "telegram_feed": {
     "schema_version": 1,
     "channel": "cs2_snipe_radar_free",
-    "observed_at": "2026-10-30T02:40:38.697167+00:00",
+    "observed_at": "2026-10-30T04:28:34.365491+00:00",
     "selection_date": "2026-10-30",
     "source_url": "https://t.me/s/cs2_snipe_radar_free",
     "messages": [
