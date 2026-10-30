@@ -1,3 +1,19 @@
+# Latest official 24h channel recap
+
+**Published:** 2026-10-29T23:00:03+00:00 (07:00 dispatch, Asia/Singapore)
+**Public observation:** 2026-10-30T02:40:38.697167+00:00
+**Source:** [Telegram #389](https://t.me/s/cs2_snipe_radar_free/389)
+
+- Observed SOLD: **3/4** (75.0%)
+- Modeled post-fee spread: **$19.52**
+- Median observed lifetime: **3294.2 s**
+
+These are the official public recap observations, not realized trading profits. Later SOLD updates to individual cards may differ from the cutoff recap. Scanned/rejected event counts are not supplied by this recap and remain unknown.
+
+## Separate fixed historical PIT audit
+
+The following audit and CSV samples retain their original 21–22 October window. They are not today's recap or a new verification of that historical baseline.
+
 # CS2 Skinport Live Snipe Tracker — 24h Estimated Net Spread & Liquidity Report
 
 **Dated window:** 2026-10-21T10:46:00+08:00 to 2026-10-22T10:46:00+08:00
