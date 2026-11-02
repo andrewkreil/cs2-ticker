@@ -1,8 +1,12 @@
-# [Free & No-Login Web Calculator](https://andrewkreil.github.io/cs2-ticker/)
+# CS2 Skinport Telemetry & Open-Source Calculators
+MIT-licensed, client-side JavaScript tools and dated anonymized telemetry; no Steam login is required.
+> 🌐 **Live Browser Utility (Zero Steam Login / Client-Side JS):** [https://andrewkreil.github.io/cs2-ticker/](https://andrewkreil.github.io/cs2-ticker/)
 
-## CS2 Skinport Telemetry & Open-Source Calculators
+[![Historical anonymized telemetry table](assets/telemetry-table.png)](https://andrewkreil.github.io/cs2-ticker/)
 
-An MIT-licensed collection of browser-based fee calculators, normalized wear-budget models, and dated, anonymized Skinport telemetry. The calculators run without a Steam login.
+*Historical table preview, 21–22 October 2026. Spread figures are modeled estimates. Click to open the browser utility.*
+
+The public repository contains the static calculator interface, reproducible formulas, and dated anonymized market observations. The calculator runs in the browser and does not require a Steam login.
 
 The fee calculator compares declared marketplace costs. The wear calculator works backward from an output-wear target to an input budget. The underlying market observations cover Skinport; these comparison tools do not imply live monitoring of every marketplace or verified low-price filler discovery.
 
@@ -23,7 +27,10 @@ Modeled ROI = modeled spread / C     (C > 0)
 | CSFloat | 2% selling fee; the dated official fee note describes 0.5%–2.5% withdrawal fees | `P × 0.98 × (0.995 to 0.975)`; combined modeled deduction 2.49%–4.45%, before other method-specific costs |
 | Steam Community Market | 5% Steam fee plus 10% CS2 fee, with minimums and per-fee rounding | If `P` is the buyer's total, seller credit is approximately `P / 1.15`; Steam Wallet credit is not withdrawable bank cash |
 
+Technical fee calculator: [open the cashout model](https://andrewkreil.github.io/cs2-ticker/#cashout) to edit the declared fee and payout inputs.
+
 Selling fees, withdrawal costs, FX, and trade-protection waiting time are distinct. A default calculator input is a declared assumption, not an account-specific settlement quote.
+
 
 Fee references checked on 2 November 2026: [Skinport's fee update](https://skinport.com/blog/lower-fees-for-everybody), [CSFloat's dated fee note](https://blog.csfloat.com/changes-to-fees-on-csgofloat-market/), and [Steam's Community Market FAQ](https://help.steampowered.com/en/faqs/view/61F0-72B7-9A18-C70B).
 
@@ -49,7 +56,10 @@ Example: an output range of `0.00–0.40` with a target below `0.15` requires `n
 f_5 < 0.06 + 0.475 × (0.80 − 0.06) = 0.4115
 ```
 
+Technical wear-budget calculator: [open the normalized float model](https://andrewkreil.github.io/cs2-ticker/#float) to inspect the reverse-budget inputs.
+
 Input/output compatibility is a separate condition. This is a reproducible calculator model, not Valve's unpublished implementation, an output-probability calculation, or a guarantee about game-side rounding.
+
 
 ## Dated anonymized telemetry: 2 November 2026
 
@@ -60,7 +70,10 @@ Both recap windows end at **07:00 UTC+8 on 2 November 2026**. The seven-day wind
 | #439 — 7-day recap | 73/79 (92.4%) | 119.0 seconds | 50.6% | +$637.70 |
 | #437 — 24-hour recap | 4/8 (50.0%) | 83.8 seconds | 87.5% | +$67.25 |
 
+Technical evidence view: [open the dated proof and source panel](https://andrewkreil.github.io/cs2-ticker/#sources) for the public telemetry files and methodology notes.
+
 SOLD describes an observed marketplace listing status. It does not identify the buyer or establish a realized trading return. Modeled spreads are estimates under the stated assumptions. The :00–:04 column describes listing-time concentration, not a SOLD percentage or proof of an expiration mechanism. These aggregates do not establish an EU/US regional split.
+
 
 ## Repository contents
 
