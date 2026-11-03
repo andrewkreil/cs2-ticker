@@ -201,6 +201,112 @@
     sum = add(sum, multiply(normalized, [BigInt(5 - ownedNormalized.length), 1n]));
     return number(add(decimal(outputMin), multiply(divide(sum, [5n, 1n]), subtract(decimal(outputMax), decimal(outputMin)))));
   }
+  function optionalNumber(value, name) {
+    return value === null || value === undefined || value === "" ? null : finite(Number(value), name);
+  }
+  // Floors must already be matched to the same phase/exterior/currency by the
+  // caller. A blended phase is deliberately represented as UNKNOWN upstream.
+  function crossMarket(listed, suggested, buffFloor, csfloatFloor, highestBid) {
+    listed = positive(Number(listed), "Listed price");
+    const askValues = [buffFloor, csfloatFloor]
+      .map((v, i) => optionalNumber(v, ["Buff floor", "CSFloat floor"][i]))
+      .filter(v => v !== null && v > 0);
+    const trueFloor = askValues.length ? Math.min(...askValues) : null;
+    const bidFloor = optionalNumber(highestBid, "Buy-order floor");
+    const reference = trueFloor;
+    let status = "unknown";
+    if (reference !== null) {
+      const listedF = decimal(listed), refF = decimal(reference);
+      const below94 = compare(listedF, multiply(refF, [94n, 100n])) < 0;
+      const atLeast97 = compare(listedF, multiply(refF, [97n, 100n])) >= 0;
+      const atMost103 = compare(listedF, multiply(refF, [103n, 100n])) <= 0;
+      const above104 = compare(listedF, multiply(refF, [104n, 100n])) > 0;
+      if (below94) status = "true_cross_market_undercut";
+      else if (atLeast97 && atMost103) status = "fair_personal_use";
+      else if (suggested !== null && Number.isFinite(Number(suggested)) && listed < Number(suggested) && above104) status = "fake_discount_phase_blended_trap";
+      else status = "above_cross_market_floor";
+    }
+    return {listed, suggested: optionalNumber(suggested, "Suggested price"), buffFloor: optionalNumber(buffFloor, "Buff floor"), csfloatFloor: optionalNumber(csfloatFloor, "CSFloat floor"), highestBid: bidFloor, trueFloor: reference, askFloor: reference, bidFloor, status};
+  }
+  function bandPercentile(floatValue, minFloat, maxFloat, exteriorMin = 0, exteriorMax = 1) {
+    if (floatValue === null || floatValue === undefined || floatValue === "") throw new RangeError("Float value is required.");
+    if ([minFloat, maxFloat, exteriorMin, exteriorMax].some(v => v === null || v === undefined || v === "")) throw new RangeError("Known skin and exterior ranges are required.");
+    const f = finite(Number(floatValue), "Float value");
+    const lo = Math.max(finite(Number(minFloat), "Skin minimum"), finite(Number(exteriorMin), "Exterior minimum"));
+    const hi = Math.min(finite(Number(maxFloat), "Skin maximum"), finite(Number(exteriorMax), "Exterior maximum"));
+    if (hi <= lo || f < lo || f > hi || (Number(exteriorMax) < 1 && f >= Number(exteriorMax))) throw new RangeError("Float is outside the intersected wear band.");
+    return (f - lo) / (hi - lo);
+  }
+  function bandDiagnosis(floatValue, minFloat, maxFloat, exteriorMin, exteriorMax, itemName = "") {
+    const percentile = bandPercentile(floatValue, minFloat, maxFloat, exteriorMin, exteriorMax);
+    const name = String(itemName).toLowerCase();
+    const cornerRisk = /(karambit|sport gloves|driver gloves)/i.test(name) && percentile > 0.55;
+    const cleanName = /(vanilla|tiger tooth|autotronic|lore|black laminate|printstream)/i.test(name);
+    let status = percentile <= 0.10 || cleanName ? "top_10_clean_pattern_immune_liquid" : "standard_no_float_overpay";
+    if (cornerRisk) status = "high_risk_scuffed_corner_knuckle";
+    return {percentile, status, cornerRisk, cleanName, boundary: percentile <= 0.10 ? "top_10" : percentile <= 0.55 ? "mid_band" : "upper_band"};
+  }
+  function phaseDiagnosis(metadata = {}, paintSeed = null, observedPaintIndex = null) {
+    const phase = metadata.phase || metadata.doppler_phase || null;
+    const paintIndex = metadata.paint_index === null || metadata.paint_index === undefined ? null : Number(metadata.paint_index);
+    const observedIndex = observedPaintIndex === null || observedPaintIndex === undefined || observedPaintIndex === "" ? null : Number(observedPaintIndex);
+    const seed = paintSeed === null || paintSeed === undefined || paintSeed === "" ? null : Number(paintSeed);
+    const supportedSeed = Number.isInteger(seed) && seed >= 0 && seed <= 1000;
+    if (seed !== null && !supportedSeed) throw new RangeError("Paint seed must be an integer from 0 to 1000.");
+    if (observedIndex !== null && !Number.isFinite(observedIndex)) throw new RangeError("Observed paint index must be numeric.");
+    const conflict = paintIndex !== null && observedIndex !== null && paintIndex !== observedIndex;
+    const gem = /ruby|sapphire|black pearl|emerald/i.test(String(phase));
+    const popular = /^(p2|p4|phase 2|phase 4)$/i.test(String(phase));
+    const status = conflict ? "paint_index_conflict" : gem && metadata.phase_verified === true ? "gem_metadata_verified" : popular && metadata.phase_verified === true ? "popular_phase" : phase && metadata.phase_verified === true ? "floor_phase" : phase ? "phase_metadata_unverified" : "unknown";
+    return {phase, paintIndex: Number.isFinite(paintIndex) ? paintIndex : null, observedPaintIndex: Number.isFinite(observedIndex) ? observedIndex : null, paintSeed: supportedSeed ? seed : null, seedVerified: false, conflict, status, seedMapping: "UNKNOWN unless a source-specific seed map is provided"};
+  }
+  function fillerPerspective(metadata, floatValue = null) {
+    const minFloat = optionalNumber(metadata?.min_float, "Metadata minimum float");
+    const maxFloat = optionalNumber(metadata?.max_float, "Metadata maximum float");
+    let normalized = null;
+    if (floatValue !== null && minFloat !== null && maxFloat !== null) normalized = normalizeFloat(Number(floatValue), minFloat, maxFloat);
+    return {minFloat, maxFloat, paintIndex: metadata?.paint_index ?? null, phase: metadata?.phase ?? null, collections: metadata?.collections ?? [], crates: metadata?.crates ?? [], normalizedFloat: normalized};
+  }
+  function marketHashName(skin, wear, variant = "normal") {
+    const base = typeof skin === "string" ? skin : skin?.name;
+    if (!base || typeof base !== "string") throw new RangeError("Skin name is required.");
+    if (wear !== "" && typeof wear !== "string") throw new RangeError("Wear must be text.");
+    const clean = base.replace(/^★\s*/, "").replace(/^StatTrak™\s+/, "");
+    const isKnife = typeof skin === "object" ? /knives|knife/i.test(String(skin.category || "")) || skin.is_knife === true || /^★/.test(base) : /\b(knife|karambit|bayonet|daggers|gloves)\b/i.test(clean) || /^★/.test(base);
+    const prefix = variant === "souvenir" ? "Souvenir " : variant === "statTrak" || variant === "stattrak" ? "StatTrak™ " : "";
+    const suffix = wear === "" ? "" : " (" + wear + ")";
+    return (isKnife && variant !== "souvenir" ? "★ " : "") + prefix + clean + suffix;
+  }
+  function resolveMarketQuote(dictionary, skin, wear, variant = "normal") {
+    const key = marketHashName(skin, wear, variant);
+    const phase = typeof skin === "object" ? skin.phase : null;
+    const prices = dictionary?.prices || dictionary || {};
+    const entry = prices[key];
+    let quote = null, phaseMatched = false;
+    if (entry) {
+      if (phase) {
+        if (entry.phases && Object.prototype.hasOwnProperty.call(entry.phases, phase)) {
+          quote = entry.phases[phase]; phaseMatched = true;
+        }
+      } else if (!entry.phases || Object.keys(entry.phases).length === 0) {
+        quote = entry; phaseMatched = true;
+      }
+    }
+    const skinportEntry = dictionary?.skinport?.[key] ?? null;
+    return {market_hash_name:key, quote, phase_matched:phaseMatched,
+      skinport_mixed: Boolean(phase && skinportEntry), skinport: phase && skinportEntry ? {value:skinportEntry, phase_status:"mixed", usable_for_safe_green:false} : skinportEntry};
+  }
+  function wearBand(floatValue) {
+    if (floatValue === null || floatValue === undefined || floatValue === "") throw new RangeError("Float value is required.");
+    const f = unit(Number(floatValue), "Float value");
+    if (f < 0.07) return {name:"Factory New", min:0, max:0.07};
+    if (f < 0.15) return {name:"Minimal Wear", min:0.07, max:0.15};
+    if (f < 0.38) return {name:"Field-Tested", min:0.15, max:0.38};
+    if (f < 0.45) return {name:"Well-Worn", min:0.38, max:0.45};
+    return {name:"Battle-Scarred", min:0.45, max:1};
+  }
   return Object.freeze({calculateSnipe, compareCashout, compareArena, calculateSafeBuy, normalizeFloat,
-    calculateFillers, cashout, float32, classifyFloat32, projectFloat});
+    calculateFillers, cashout, float32, classifyFloat32, projectFloat, crossMarket,
+    bandPercentile, bandDiagnosis, phaseDiagnosis, fillerPerspective, marketHashName,
+    resolveMarketQuote, wearBand});
 });

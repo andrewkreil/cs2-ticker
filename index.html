@@ -4,26 +4,31 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#090e16">
   <meta http-equiv="Content-Security-Policy" content="default-src 'none';base-uri 'none';object-src 'none';script-src 'self';style-src 'self';img-src 'self' data:;connect-src 'self';font-src 'self';form-action 'none'">
-  <title>CS2 True-Floor &amp; Float32 Calculator</title>
-  <meta name="description" content="Free, no-login CS2 calculators: dated Skinport sale medians, four-way fee math, normalized wear budgets and Float32 rounding.">
+  <title>CS2 Skin Truth &amp; Pattern Doctor</title>
+  <meta name="description" content="Free CS2 skin diagnostics: Buff163 and CSFloat cash asks, Doppler phases, wear-band position, Skinport evidence and Float32 budgets.">
   <link rel="canonical" href="https://andrewkreil.github.io/cs2-ticker/">
   <link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="styles.css">
   <script src="math.js" defer></script><script src="app.js" defer></script>
 </head>
 <body id="top">
-<header class="site-header"><div class="container navbar"><a class="brand" href="#top">CS2 <span>True-Floor &amp; Float32</span></a><nav aria-label="Tools"><a href="#checker">Truth checker</a><a href="#cashout">Cashout</a><a href="#float">Float32</a><a href="#telemetry">Evidence</a></nav></div></header>
+<header class="site-header"><div class="container navbar"><a class="brand" href="#top">CS2 <span>Skin Truth &amp; Pattern Doctor</span></a><nav aria-label="Tools"><a href="#checker">Truth checker</a><a href="#cashout">Cashout</a><a href="#float">Float32</a><a href="#telemetry">Evidence</a></nav></div></header>
 <main class="container">
-  <section class="hero"><p class="eyebrow">OPEN-SOURCE MATH / FREE / NO STEAM LOGIN</p>
-    <h1>Stop Buying Fake &quot;-20% OFF&quot; Tags.<br><span>Check the Real 7-Day Median &amp; Net Cashout.</span></h1>
-    <p class="lede">The discount badge is a starting point. Completed sales, fee-adjusted recovery and measured time-to-SOLD tell you more.</p>
-    <div class="truth-grid">
-      <article><span class="negative">❌ 01 / THE ANCHOR</span><h2>Official Marketplace “Suggested Price”</h2><p>An inflated or stale anchor can make an overpriced listing look like a deal. Compare it with completed sales before trusting “-20% OFF”.</p></article>
-      <article><span class="negative">❌ 02 / THE EMPTY BOX</span><h2>Standard Calculators</h2><p>Empty boxes force you to guess the real floor price and look up float caps yourself.</p></article>
-      <article class="positive"><span>✅ 03 / THE EVIDENCE</span><h2>Our True-Floor &amp; Speed Data</h2><p>Real 7-day completed-sale medians. Explicit cashout fee assumptions. Fewer than 5 sales/week flagged as thin. Observed seconds to SOLD, with dates and sample sizes.</p></article>
-    </div>
+  <section class="hero"><p class="eyebrow">FREE / OPEN-SOURCE / NO STEAM LOGIN</p>
+    <h1>CS2 Skin Truth<br><span>&amp; Pattern Doctor.</span></h1>
+    <p class="lede">One skin. Four checks. Compare real cash asks, locate the float inside its wear band, separate Doppler phases, and calculate the normalized wear budget.</p>
+    <p id="dataset-summary" class="dataset-summary">Loading full skin metadata and dated market anchors…</p>
   </section>
-  <section id="checker" class="tool-section"><div class="section-heading"><p class="eyebrow">01 / SKIN TRUTH CHECKER</p><h2>A reference price is not a floor.</h2><p>Search the local evidence library. Missing fields stay UNKNOWN; a dated quote is not a live order book.</p></div>
-    <div class="panel"><div class="input-grid two"><label>Search skin <input id="skin-search" type="search" placeholder="Try Tiger Tooth, gloves or AK-47"></label><label>Matched skin <select id="skin-select"><option value="">Loading evidence…</option></select></label></div>
+  <section id="checker" class="tool-section"><div class="section-heading"><p class="eyebrow">01 / FOUR CHECKS BEFORE YOU BUY</p><h2>Look past the discount badge.</h2><p>ByMykel skin identities + CSGOTrader Buff163 / CSFloat snapshots + observed Skinport sales. Prices are USD, matched by exterior, variant and phase.</p></div>
+    <div class="panel"><div class="input-grid two"><label>Search skin / phase / paint index<input id="skin-search" type="search" placeholder="Try Doppler, Ruby, 415, gloves or AK-47"></label><label>Exact skin identity<select id="skin-select"><option value="">Loading metadata…</option></select></label></div>
+    <div class="input-grid"><label>Exterior<select id="wear-select"></select></label><label>Variant<select id="variant-select"></select></label><label>Your listing price (USD)<input id="doctor-price" type="number" min="0.01" step="0.01" placeholder="Enter listing price"></label><label>Actual float<input id="doctor-float" type="number" min="0" max="1" step="any"></label><label>Listing paint index<input id="doctor-paint" type="number" min="0" step="1"></label><label>Paint seed (optional)<input id="doctor-seed" type="number" min="0" max="1000" step="1" placeholder="0–1000"></label></div>
+    <p class="note">Float and paint fields start from the selected metadata; replace them with the actual listing values. Changing float selects the corresponding available exterior.</p>
+    <div class="doctor-grid" aria-live="polite">
+      <article class="doctor-card" id="doctor-market"><p class="eyebrow">01 / CROSS-MARKET TRUE FLOOR</p><h3 id="doctor-market-status">UNKNOWN</h3><div id="market-prices" class="price-list"></div><p id="doctor-market-detail" class="note"></p></article>
+      <article class="doctor-card" id="doctor-band"><p class="eyebrow">02 / BAND FLOAT &amp; CORNER RADAR</p><h3 id="doctor-band-status">UNKNOWN</h3><p id="doctor-band-detail" class="note"></p></article>
+      <article class="doctor-card" id="doctor-pattern"><p class="eyebrow">03 / PHASE &amp; PATTERN SEED</p><h3 id="doctor-pattern-status">UNKNOWN</h3><p id="doctor-pattern-detail" class="note"></p></article>
+      <article class="doctor-card" id="doctor-filler"><p class="eyebrow">04 / TRADE-UP RANGE PERSPECTIVE</p><h3 id="doctor-filler-status">UNKNOWN</h3><p id="doctor-filler-detail" class="note"></p><div class="chips"><button id="load-input-range">Use as input range ↓</button><button id="load-output-range">Use as output range ↓</button></div></article>
+    </div>
+    <h3 class="subheading">Skinport completed sales &amp; observed speed</h3>
     <div class="truth-results" aria-live="polite"><div><span>Suggested vs 7d median</span><strong id="truth-gap">UNKNOWN</strong></div><div><span>7d liquidity</span><strong id="truth-grade">UNKNOWN</strong></div><div><span>Max Safe Buy Price</span><strong id="truth-safe">UNKNOWN</strong></div><div><span>Historical mean below safe price</span><strong id="truth-speed">UNKNOWN</strong></div></div>
     <p id="truth-metrics" class="mono"></p><p id="truth-provenance" class="note"></p>
     <p class="note">Safe price = floor to cents of min(after-fee 7d median − $2.50, after-fee 7d median ÷ 1.06). Uses the public Skinport tier below; excludes tax, currency conversion and inventory/time costs. “Safe” names this model ceiling, not a guaranteed resale.</p>
@@ -50,5 +55,5 @@
     <p class="note">SOLD means the market listing was observed sold. It is not evidence of a user purchase, resale or realized gain. Quotes and listings can have different observation dates; later quotes are retrospective comparisons, not point-in-time trading signals.</p></div>
   </section>
 </main>
-<footer class="container" id="sources"><div class="footer-row"><strong>CS2 True-Floor &amp; Float32 Calculator</strong><a href="https://x.com/Andrewkreil" rel="me noopener">X @Andrewkreil ↗</a><a href="data/skin_benchmarks.json">Benchmark JSON</a><a href="data/latest_telemetry.json">Telemetry JSON</a></div><p class="note">MIT open-source tools. Runs in your browser; no login or account connection. Source labels and collection dates travel with the data. Official fee references: Skinport fee documentation, CSFloat fee documentation and Steam Community Market FAQ. No affiliation with those services.</p></footer>
+<footer class="container" id="sources"><div class="footer-row"><strong>CS2 Skin Truth &amp; Pattern Doctor</strong><a href="https://x.com/Andrewkreil" rel="me noopener">X @Andrewkreil ↗</a><a href="data/skin_benchmarks.json">Benchmark JSON</a><a href="data/latest_telemetry.json">Telemetry JSON</a></div><p class="note">MIT open-source tools. Metadata: ByMykel / CSGO-API (MIT). Cross-market quotes: CSGOTrader public market files. Runs in your browser; no login or account connection. Source labels and collection dates travel with the data. Official fee references: Skinport fee documentation, CSFloat fee documentation and Steam Community Market FAQ. No affiliation with those services.</p></footer>
 </body></html>

@@ -1,4 +1,4 @@
-/* Local, client-side calculations over dated evidence. */
+/* MIT. Dated public metadata and market quotes; all arithmetic stays local. */
 (function () {
   'use strict';
   const $ = selector => document.querySelector(selector);
@@ -7,33 +7,129 @@
   const known = value => typeof value === 'number' && Number.isFinite(value);
   const money = value => known(value) ? '$' + value.toFixed(2) : 'UNKNOWN';
   const input = id => { const raw = $('#' + id).value.trim(); if (!raw) throw new Error('Enter ' + id.replaceAll('-', ' ') + '.'); return Number(raw); };
-  let benchmarks = [], samples = [], observedAt = 'UNKNOWN';
-  const selected = () => benchmarks.find(row => row.market_hash_name === $('#skin-select').value);
-  const quoteFor = row => benchmarks.find(item => item.market_hash_name === row.market_hash_name);
-
-  function renderChecker() {
-    const item = selected();
-    ['truth-gap', 'truth-grade', 'truth-safe', 'truth-speed'].forEach(id => { $('#' + id).textContent = 'UNKNOWN'; });
-    $('#truth-metrics').textContent = '';
-    $('#truth-provenance').textContent = item ? '' : 'No matching benchmark in this local library.';
-    if (!item) return;
-    const median = item.median_7d_usd, suggested = item.official_suggested_price_usd;
-    if (known(suggested) && known(median) && median > 0) $('#truth-gap').textContent = ((suggested / median - 1) * 100).toFixed(1) + '% anchor premium';
-    const volume = item.sales_7d;
-    if (known(volume)) $('#truth-grade').textContent = volume >= 5 ? '🟢 Liquid sample · ' + volume + '/7d' : '🔴 Thin / illiquid · ' + volume + '/7d';
-    $('#truth-metrics').textContent = 'Suggested: ' + money(suggested) + ' / 7d median: ' + money(median) + ' / 30d median: ' + money(item.median_30d_usd);
-    let timing = [];
-    if (known(median) && median > 0) {
-      const tier = median >= 1000 ? input('skinport-tier') : 8;
-      const safe = GrowthMath.calculateSafeBuy(median, tier).maxSafePrice;
-      $('#truth-safe').textContent = money(safe) + ' · ' + tier + '% fee';
-      timing = samples.filter(row => row.market_hash_name === item.market_hash_name && known(row.listed_price_usd) && row.listed_price_usd < safe && known(row.observed_sold_seconds));
-      if (timing.length) $('#truth-speed').textContent = 'Clears in ~' + (timing.reduce((sum, row) => sum + row.observed_sold_seconds, 0) / timing.length).toFixed(1) + 's · n=' + timing.length;
-    }
-    const dates = [...new Set(timing.map(row => row.observed_at || row.published_at || 'UNKNOWN'))];
-    $('#truth-provenance').textContent = 'Quote observed: ' + (item.observed_at || observedAt) + '. ' + (item.source_note || 'Official pricing projection; see JSON provenance.') + ' Mean uses only this skin’s recorded listings below today’s displayed model ceiling. Timing dates: ' + (dates.join(', ') || 'no qualifying observed SOLD sample') + '.';
+  const optional = id => $('#' + id).value.trim() === '' ? null : Number($('#' + id).value);
+  const bands = {'Factory New':[0,.07], 'Minimal Wear':[.07,.15], 'Field-Tested':[.15,.38], 'Well-Worn':[.38,.45], 'Battle-Scarred':[.45,1]};
+  let dictionary = {skins:[],prices:{},skinport:{}}, benchmarks = [], samples = [], observedAt = 'UNKNOWN';
+  const selected = () => benchmarks.find(row => row.id === $('#skin-select').value);
+  const quoteFor = row => dictionary.skinport[row.market_hash_name];
+  const label = row => row.name + (row.phase ? ' · ' + row.phase : '') + (row.paint_index !== null ? ' · #' + row.paint_index : '');
+  const names = rows => (rows || []).map(row => typeof row === 'string' ? row : row.name).join(', ') || 'Not listed';
+  const currentQuote = item => GrowthMath.resolveMarketQuote(dictionary, item, $('#wear-select').value, $('#variant-select').value);
+  function light(id, state, title, detail) {
+    $('#' + id).dataset.state = state;
+    $('#' + id + '-status').textContent = title;
+    $('#' + id + '-detail').textContent = detail;
   }
-
+  function resetDoctor() {
+    ['market','band','pattern','filler'].forEach(id => light('doctor-' + id, 'unknown', 'UNKNOWN', 'Select a skin and enter the listing details.'));
+    $('#market-prices').innerHTML = '';
+    ['truth-gap','truth-grade','truth-safe','truth-speed'].forEach(id => { $('#' + id).textContent = 'UNKNOWN'; });
+    $('#truth-metrics').textContent = '';
+  }
+  function renderChecker() {
+    resetDoctor();
+    const item = selected();
+    if (!item) { $('#truth-provenance').textContent = 'No matching metadata.'; return; }
+    const resolved = currentQuote(item), quote = resolved.quote || {};
+    const sp = resolved.skinport_mixed ? resolved.skinport.value : resolved.skinport;
+    const price = optional('doctor-price'), f = optional('doctor-float');
+    const values = [
+      ['Skinport listed floor' + (resolved.skinport_mixed ? ' · mixed phases' : ''), sp?.active_floor_usd],
+      ['Skinport suggested' + (resolved.skinport_mixed ? ' · mixed phases' : ''), sp?.official_suggested_price_usd],
+      ['Buff163 same-phase ask', quote.buff163_starting_at_usd],
+      ['CSFloat same-phase ask', quote.csfloat_reference_usd],
+      ['Buff163 instant buy-order bid', quote.buff163_highest_order_usd]
+    ];
+    $('#market-prices').innerHTML = values.map(([key,value]) => '<div><span>' + esc(key) + '</span><b>' + money(value) + '</b></div>').join('');
+    let identityConflict = false;
+    try {
+      const p = GrowthMath.phaseDiagnosis(item, optional('doctor-seed'), optional('doctor-paint'));
+      identityConflict = p.conflict;
+      const labels = {
+        paint_index_conflict:['red','🔴 Paint Index / Selected Skin Mismatch'],
+        gem_metadata_verified:['green','🟢 Verified Gem Metadata'],
+        popular_phase:['yellow','🟡 Popular Phase (P2/P4)'],
+        floor_phase:['red','🔴 Floor Phase · 0% Assumed Seed Premium'],
+        phase_metadata_unverified:['unknown','Phase identity UNKNOWN'],
+        unknown:['yellow','🟡 Seed Tier Unverified · 0% Assumed Premium']
+      };
+      const [state,title] = labels[p.status];
+      light('doctor-pattern', state, title,
+        'Metadata paint #' + (p.paintIndex ?? 'UNKNOWN') + ' / ' + (p.phase || item.finish || 'no phase') +
+        '. Seed ' + (p.paintSeed ?? 'not entered') + ': premium tier UNKNOWN. No verified per-weapon seed map is loaded; Fade percentage and surface condition cannot be inferred from a seed number alone. Metadata identity does not authenticate a listing.');
+    } catch(error) { identityConflict = true; light('doctor-pattern','unknown','Check paint / seed',error.message); }
+    try {
+      if (identityConflict) throw new Error('Match the listing paint index to the selected metadata before comparing phase prices.');
+      if (price === null) throw new Error('Enter a listing price to compare it with the dated cash asks.');
+      const r = GrowthMath.crossMarket(price, sp?.official_suggested_price_usd ?? null, quote.buff163_starting_at_usd, quote.csfloat_reference_usd, quote.buff163_highest_order_usd);
+      const labels = {
+        true_cross_market_undercut:['green','🟢 True Cross-Market Undercut'],
+        fair_personal_use:['yellow','🟡 Fair Personal-Use Price (No Flip Margin)'],
+        fake_discount_phase_blended_trap:['red','🔴 Fake Discount / Phase-Blended Trap'],
+        above_cross_market_floor:['yellow','🟡 Outside the Undercut / Fair-Price Bands'],
+        unknown:['unknown','Cross-market price UNKNOWN']
+      };
+      const [state,title] = labels[r.status];
+      light('doctor-market',state,title,'Matched ask floor: ' + money(r.askFloor) + '. Green <94%; fair 97–103%; red >104% while below the suggested anchor. Buy-order bids stay separate. These are dated gross quotes, before resale/payout fees, not executable offers or guaranteed margin.');
+    } catch(error) { light('doctor-market','unknown','Cross-market check pending',error.message); }
+    try {
+      if (f === null || !known(item.min_float) || !known(item.max_float)) throw new Error('Enter an actual float within a known skin range.');
+      const band = GrowthMath.wearBand(f);
+      if (band.name !== $('#wear-select').value) throw new Error('Float does not match the selected exterior.');
+      const r = GrowthMath.bandDiagnosis(f,item.min_float,item.max_float,band.min,band.max,item.name);
+      const [state,title] = r.cornerRisk ? ['red','🔴 High-Risk Corner / Knuckle Zone — Inspect Screenshot'] : r.percentile <= .10 ? ['green','🟢 Top-10% of This Wear Band'] : r.cleanName ? ['green','🟢 Liquid-Finish Shortlist · Inspect Surface'] : ['yellow','🟡 Standard · 0% Assumed Float Premium'];
+      light('doctor-band',state,title,'Band position ' + (r.percentile*100).toFixed(2) + '% in [' + Math.max(item.min_float,band.min) + ', ' + Math.min(item.max_float,band.max) + ']. This is a range position, not a population percentile or proof of clean corners. Finish shortlist does not make an item pattern-immune.');
+    } catch(error) { light('doctor-band','unknown','Wear-band position UNKNOWN',error.message); }
+    try {
+      const r = GrowthMath.fillerPerspective(item,f);
+      light('doctor-filler',known(r.normalizedFloat) ? 'green' : 'unknown',known(r.normalizedFloat) ? 'Normalized Float: ' + r.normalizedFloat.toPrecision(8) : 'Normalized Float UNKNOWN',
+        'Skin range [' + (r.minFloat ?? 'UNKNOWN') + ', ' + (r.maxFloat ?? 'UNKNOWN') + ']. Collections: ' + names(r.collections) + '. Containers: ' + names(r.crates) + '. Range and collection membership alone do not establish five-Covert recipe eligibility or output odds.');
+    } catch(error) { light('doctor-filler','unknown','Check skin float',error.message); }
+    let timing = [];
+    if (sp && !resolved.skinport_mixed) {
+      const median = sp.median_7d_usd, suggested = sp.official_suggested_price_usd;
+      if (known(median) && median > 0 && known(suggested)) $('#truth-gap').textContent = ((suggested/median-1)*100).toFixed(1) + '% anchor premium';
+      if (known(sp.sales_7d)) $('#truth-grade').textContent = (sp.sales_7d >= 5 ? '🟢 Liquid sample · ' : '🔴 Thin sample · ') + sp.sales_7d + '/7d';
+      if (known(median) && median > 0) {
+        const fee = median >= 1000 ? input('skinport-tier') : 8;
+        const safe = GrowthMath.calculateSafeBuy(median,fee).maxSafePrice;
+        $('#truth-safe').textContent = money(safe) + ' · ' + fee + '% fee';
+        timing = samples.filter(row => row.market_hash_name === resolved.market_hash_name && known(row.listed_price_usd) && row.listed_price_usd < safe && known(row.observed_sold_seconds));
+        if(timing.length) $('#truth-speed').textContent = 'Clears in ~' + (timing.reduce((sum,row)=>sum+row.observed_sold_seconds,0)/timing.length).toFixed(1) + 's · n=' + timing.length;
+      }
+    }
+    $('#truth-metrics').textContent = resolved.market_hash_name + (item.phase ? ' / ' + item.phase : '') + ' · Skinport 7d: ' + money(sp?.median_7d_usd) + ' / 30d: ' + money(sp?.median_30d_usd) + (resolved.skinport_mixed ? ' · mixed-phase medians, excluded from safe-price / timing calculations' : '');
+    const source = dictionary.sources || {};
+    $('#truth-provenance').textContent = 'Metadata captured: ' + (source.bymykel?.captured_at || 'UNKNOWN') + '. Market files captured: ' + (source.cross_market?.captured_at || 'UNKNOWN') + '. Skinport quote: ' + (sp?.observed_at || source.skinport?.captured_at || 'UNKNOWN') + '. Historical timing dates: ' + ([...new Set(timing.map(row=>row.observed_at || row.published_at || 'UNKNOWN'))].join(', ') || 'no matching observations') + '. Fetch time is not the provider’s individual quote timestamp.';
+  }
+  function syncSelection() {
+    const item = selected();
+    if(!item) { renderChecker(); return; }
+    const wears = item.wears?.length ? item.wears : [''];
+    $('#wear-select').innerHTML = wears.map(wear=>'<option value="'+esc(wear)+'">'+esc(wear || 'No exterior / Vanilla')+'</option>').join('');
+    $('#wear-select').value = wears[0];
+    const variants = [['normal','Normal'], ...(item.stattrak ? [['stattrak','StatTrak™']] : []), ...(item.souvenir ? [['souvenir','Souvenir']] : [])];
+    $('#variant-select').innerHTML = variants.map(([v,t])=>'<option value="'+v+'">'+t+'</option>').join('');
+    $('#variant-select').value = 'normal';
+    $('#doctor-paint').value = item.paint_index ?? '';
+    $('#doctor-seed').value = '';
+    syncWear();
+  }
+  function syncWear() {
+    const item=selected(); if(!item) return;
+    const band=bands[$('#wear-select').value];
+    $('#doctor-float').value=band && known(item.min_float) && known(item.max_float) ? (Math.max(item.min_float,band[0])+Math.min(item.max_float,band[1]))/2 : '';
+    const q=currentQuote(item), sp=q.skinport_mixed ? null : q.skinport;
+    $('#doctor-price').value=known(sp?.active_floor_usd) ? sp.active_floor_usd : '';
+    renderChecker();
+  }
+  function populateSkins() {
+    const query=$('#skin-search').value.toLowerCase(), previous=$('#skin-select').value;
+    const rows=benchmarks.filter(row=>(label(row)+' '+names(row.collections)).toLowerCase().includes(query));
+    $('#skin-select').innerHTML=rows.map(row=>'<option value="'+esc(row.id)+'">'+esc(label(row))+'</option>').join('') || '<option value="">No matching skin</option>';
+    $('#skin-select').value=rows.some(row=>row.id===previous) ? previous : (rows[0]?.id || '');
+    syncSelection();
+  }
   function renderCashout() {
     try {
       const amount = input('fair'), listed = input('listed');
@@ -86,59 +182,63 @@
       $('#listed').value = row.listed_price_usd;
       if (known(median)) $('#fair').value = median;
       else $('#fair').value = '';
-      if (quote) { $('#skin-search').value = ''; populateSkins(); $('#skin-select').value = quote.market_hash_name; }
+      
       $('#load-note').textContent = known(median) ? 'Loaded the dated median and listed acquisition price. This is a retrospective calculation, not a live executable quote.' : 'Loaded acquisition price; no official 7d median is available. Enter your own sale assumption.';
       renderCashout(); renderChecker(); location.hash = 'cashout';
     }; });
   }
 
-  function populateSkins() {
-    const query = $('#skin-search').value.toLowerCase(), previous = $('#skin-select').value;
-    const rows = benchmarks.filter(row => row.market_hash_name.toLowerCase().includes(query));
-    $('#skin-select').innerHTML = rows.map(row => '<option value="' + esc(row.market_hash_name) + '">' + esc(row.market_hash_name) + '</option>').join('') || '<option value="">No matching local skin</option>';
-    $('#skin-select').value = rows.some(row => row.market_hash_name === previous) ? previous : (rows[0]?.market_hash_name || '');
-    renderChecker();
-  }
 
   async function load() {
     try {
-      const responses = await Promise.all([fetch('data/skin_benchmarks.json'), fetch('data/latest_telemetry.json')]);
-      if (responses.some(response => response.ok === false)) throw new Error('A local evidence file could not be loaded.');
-      const [dictionary, telemetry] = await Promise.all(responses.map(response => response.json()));
-      benchmarks = dictionary.items;
-      observedAt = dictionary.observed_at || dictionary.source_observed_at || 'UNKNOWN';
-      const feed = telemetry.telegram_feed?.messages || [];
-      samples = dictionary.samples || feed.filter(row => row.kind === 'alert').map(row => ({...row, sale_id:row.sale_id ?? row.id, observed_sold_seconds:row.status === 'SOLD' ? row.lifetime_seconds : null, observed_at:row.published_at}));
+      const responses=await Promise.all([fetch('data/skin_benchmarks.json'),fetch('data/latest_telemetry.json')]);
+      if(responses.some(r=>r.ok===false)) throw new Error('A dated evidence file could not be loaded.');
+      const [data,telemetry]=await Promise.all(responses.map(r=>r.json()));
+      dictionary=data; benchmarks=data.skins; samples=data.samples;
+      observedAt=data.sources?.skinport?.captured_at || data.observed_at || 'UNKNOWN';
       populateSkins();
-      const ranges = benchmarks.filter(row => known(row.float_min) && known(row.float_max));
-      $('#float-skin-select').innerHTML = '<option value="">Manual range</option>' + ranges.map(row => '<option value="' + esc(row.market_hash_name) + '">' + esc(row.market_hash_name) + '</option>').join('');
-      $('#sample-source').textContent = samples.length + ' dated observations. Quote collection: ' + observedAt + '. Latest public-feed observation: ' + (telemetry.telegram_feed?.observed_at || 'UNKNOWN') + '.';
+      const ranges=benchmarks.filter(row=>known(row.min_float)&&known(row.max_float)&&row.max_float>row.min_float);
+      $('#float-skin-select').innerHTML='<option value="">Manual range</option>'+ranges.map(row=>'<option value="'+esc(row.id)+'">'+esc(label(row))+'</option>').join('');
+      $('#sample-source').textContent=samples.length+' dated observations. Skinport quote capture: '+observedAt+'. Latest public-feed observation: '+(telemetry.telegram_feed?.observed_at || 'UNKNOWN')+'.';
+      $('#dataset-summary').textContent=benchmarks.length.toLocaleString()+' skin / phase identities · '+Object.keys(dictionary.prices).length.toLocaleString()+' exact market keys · '+Object.keys(dictionary.skinport).length+' local Skinport quote objects';
       renderSamples();
-    } catch (error) {
-      $('#truth-provenance').textContent = error.message;
-      $('#telemetry-body').innerHTML = '<tr><td colspan="5">Local evidence could not be loaded.</td></tr>';
-    }
+    } catch(error) { $('#truth-provenance').textContent=error.message; $('#telemetry-body').innerHTML='<tr><td colspan="5">Evidence could not be loaded.</td></tr>'; }
   }
-
+  function loadRange(output) {
+    const item=selected(); if(!item || !known(item.min_float) || !known(item.max_float)) return;
+    if(output) { $('#output-min').value=item.min_float; $('#output-max').value=item.max_float; $('#float-skin-select').value=item.id; }
+    else { $('#filler-min').value=item.min_float; $('#filler-max').value=item.max_float; $('#candidate-float').value=$('#doctor-float').value; }
+    $('#float-source').textContent=label(item)+' · ByMykel range. Recipe eligibility remains separate.';
+    renderFloat(); location.hash='float';
+  }
   document.addEventListener('DOMContentLoaded', () => {
     load(); renderCashout(); renderFloat();
-    $('#skin-search').oninput = populateSkins;
-    $('#skin-select').onchange = () => { const item = selected(); $('#fair').value = known(item?.median_7d_usd) ? item.median_7d_usd : ''; renderCashout(); renderChecker(); };
-    ['fair','listed','skinport-tier','csfloat-payout','csfloat-fx'].forEach(id => { $('#' + id).oninput = renderCashout; });
-    all('[data-amount]').forEach(button => { button.onclick = () => { $('#fair').value = button.dataset.amount; renderCashout(); }; });
-    $('#float-skin-select').onchange = () => {
-      const item = benchmarks.find(row => row.market_hash_name === $('#float-skin-select').value);
-      if (item) { $('#output-min').value = item.float_min; $('#output-max').value = item.float_max; $('#float-source').textContent = item.float_source || item.source_note || 'Recorded skin wear range; recipe eligibility is separate.'; }
+    $('#skin-search').oninput=populateSkins;
+    $('#skin-select').onchange=syncSelection;
+    $('#wear-select').onchange=syncWear;
+    $('#variant-select').onchange=syncWear;
+    ['doctor-price','doctor-paint','doctor-seed'].forEach(id=>{$('#'+id).oninput=renderChecker;});
+    $('#doctor-float').oninput=()=>{
+      const f=optional('doctor-float'),item=selected();
+      if(known(f)&&f>=0&&f<=1&&item?.wears?.includes(GrowthMath.wearBand(f).name)) $('#wear-select').value=GrowthMath.wearBand(f).name;
+      renderChecker();
+    };
+    $('#load-input-range').onclick=()=>loadRange(false);
+    $('#load-output-range').onclick=()=>loadRange(true);
+    ['fair','listed','skinport-tier','csfloat-payout','csfloat-fx'].forEach(id=>{$('#'+id).oninput=renderCashout;});
+    all('[data-amount]').forEach(button=>{button.onclick=()=>{$('#fair').value=button.dataset.amount;renderCashout();};});
+    $('#float-skin-select').onchange=()=>{
+      const item=benchmarks.find(row=>row.id===$('#float-skin-select').value);
+      if(item){$('#output-min').value=item.min_float;$('#output-max').value=item.max_float;$('#float-source').textContent=label(item)+' · ByMykel metadata; recipe eligibility is separate.';}
       renderFloat();
     };
-    ['output-min','output-max','target-float','filler-min','filler-max','candidate-float','owned-floats'].forEach(id => { $('#' + id).oninput = renderFloat; });
-    all('[data-example]').forEach(button => { button.onclick = () => {
-      $('#float-skin-select').value = ''; $('#output-min').value = '0'; $('#output-max').value = '1'; $('#target-float').value = '0.07';
-      $('#filler-min').value = '0'; $('#filler-max').value = '1'; $('#owned-floats').value = '';
-      $('#candidate-float').value = {safe:'0.06', trap:'0.069999999', over:'0.071'}[button.dataset.example];
-      $('#float-source').textContent = 'Illustrative 0–1 ranges isolate the storage-rounding boundary; not an item recipe.';
-      renderFloat();
-    }; });
-    $('#budget-select').onchange = renderSamples;
+    ['output-min','output-max','target-float','filler-min','filler-max','candidate-float','owned-floats'].forEach(id=>{$('#'+id).oninput=renderFloat;});
+    all('[data-example]').forEach(button=>{button.onclick=()=>{
+      $('#float-skin-select').value='';$('#output-min').value='0';$('#output-max').value='1';$('#target-float').value='0.07';
+      $('#filler-min').value='0';$('#filler-max').value='1';$('#owned-floats').value='';
+      $('#candidate-float').value={safe:'0.06',trap:'0.069999999',over:'0.071'}[button.dataset.example];
+      $('#float-source').textContent='Illustrative 0–1 ranges isolate storage rounding; not an item recipe.';renderFloat();
+    };});
+    $('#budget-select').onchange=renderSamples;
   });
 })();
