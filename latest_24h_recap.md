@@ -44,10 +44,10 @@ SOLD means an observed market sale, not a purchase or resale by this service.
 - Window timezone is assumed Asia/Shanghai from the supplied Beijing-time context.
 - Reported Printstream spread/ROI ($12.58 / 13.11%) differ from recalculation with the rounded benchmark and 0.962 factor ($12.54 / 13.07%). The historical table preserves reported figures; calculators recompute from inputs.
 - Rejection describes this filter's criteria, not fraud or traps. Historical observations do not guarantee future availability or returns.
-- Timing uses first confirmed VIP broadcast to observed SOLD. The source reports more than 80% of hits at minutes :00–:04; exact numerator was not supplied.
+- Timing uses first confirmed signal broadcast to observed SOLD. The source reports more than 80% of hits at minutes :00–:04; exact numerator was not supplied.
 - The supplied rounded funnel percentages (99.898% / 0.102%) differ from the integer counts. Public exports recalculate these as 99.897% / 0.103%.
 - The source supplies median/fastest timing, but does not explicitly state the valid timing sample count; that count remains unknown.
 
 [Skinport vs CSFloat cashout and normalized float calculators](https://andrewkreil.github.io/cs2-ticker/)
 
-[Join Free 15m Discord Feed](https://discord.gg/XVgpjRRxK6) · [Telegram public evidence](https://t.me/s/cs2_snipe_radar_free) · [VIP service](https://whop.com/snipe-radar/)
+[Join Free 15m Discord Feed](https://discord.gg/XVgpjRRxK6) · [Telegram public evidence](https://t.me/s/cs2_snipe_radar_free)
