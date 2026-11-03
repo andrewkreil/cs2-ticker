@@ -157,5 +157,50 @@
     };
   }
 
-  return Object.freeze({calculateSnipe, compareCashout, normalizeFloat, calculateFillers});
+  function feeFactor(fee) {
+    finite(fee, "Fee");
+    if (fee < 0 || fee > 100) throw new RangeError("Fees must be between 0% and 100%.");
+    return subtract([1n, 1n], divide(decimal(fee), [100n, 1n]));
+  }
+  function recoveryFraction(amount, fees) {
+    positive(amount, "Sale amount");
+    return fees.reduce((value, fee) => multiply(value, feeFactor(fee)), decimal(amount));
+  }
+  function cashout(amount, fee) { return number(recoveryFraction(amount, [fee])); }
+  function calculateSafeBuy(median, sellerFee = 8, withdrawal = 0, fx = 0) {
+    const recovery = recoveryFraction(median, [sellerFee, withdrawal, fx]);
+    const profitCap = subtract(recovery, [5n, 2n]);
+    const roiCap = divide(recovery, [106n, 100n]);
+    const cap = compare(profitCap, roiCap) < 0 ? profitCap : roiCap;
+    const cents = cap[0] > 0n ? cap[0] * 100n / cap[1] : 0n;
+    return {afterFee: number(recovery), maxSafePrice: centsToNumber(cents)};
+  }
+  function compareArena(amount, publicFee = 8, withdrawalPct = 2.5, fxPct = 0) {
+    return [
+      {name: "Skinport Public", net: cashout(amount, publicFee), fee: publicFee + "%", withdrawable: true},
+      {name: "Skinport Private", net: cashout(amount, 2), fee: "2% · private buyer required", withdrawable: true},
+      {name: "CSFloat", net: number(recoveryFraction(amount, [2, withdrawalPct, fxPct])),
+        fee: "2% sale, then " + withdrawalPct + "% withdrawal, then " + fxPct + "% FX", withdrawable: true},
+      {name: "Steam", net: number(divide(decimal(amount), [115n, 100n])),
+        fee: "P ÷ 1.15 · wallet balance", withdrawable: false}
+    ];
+  }
+  function float32(value) { return Math.fround(finite(value, "Float32 value")); }
+  function classifyFloat32(projected, target) {
+    unit(projected, "Projected output");
+    unit(target, "Target");
+    const stored = float32(projected);
+    return {projected, stored, status: projected >= target ? "over" : stored >= target ? "trap" : "safe"};
+  }
+  function projectFloat(outputMin, outputMax, ownedNormalized, candidate, fillerMin, fillerMax) {
+    range(outputMin, outputMax, "Output range");
+    if (!Array.isArray(ownedNormalized) || ownedNormalized.length > 4) throw new RangeError("Provide zero to four owned normalized floats.");
+    let sum = [0n, 1n];
+    for (const value of ownedNormalized) { unit(value, "Owned normalized float"); sum = add(sum, decimal(value)); }
+    const normalized = normalizedFraction(candidate, fillerMin, fillerMax);
+    sum = add(sum, multiply(normalized, [BigInt(5 - ownedNormalized.length), 1n]));
+    return number(add(decimal(outputMin), multiply(divide(sum, [5n, 1n]), subtract(decimal(outputMax), decimal(outputMin)))));
+  }
+  return Object.freeze({calculateSnipe, compareCashout, compareArena, calculateSafeBuy, normalizeFloat,
+    calculateFillers, cashout, float32, classifyFloat32, projectFloat});
 });
