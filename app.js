@@ -123,9 +123,21 @@
     $('#doctor-price').value=known(sp?.active_floor_usd) ? sp.active_floor_usd : '';
     renderChecker();
   }
+  const searchTokens = value => String(value ?? '').toLowerCase().split(/[\s\p{P}\p{S}]+/u).filter(Boolean);
+  const wearAliases = {'Factory New':'fn','Minimal Wear':'mw','Field-Tested':'ft','Well-Worn':'ww','Battle-Scarred':'bs'};
+  const skinSearchText = row => searchTokens([
+    row.name, row.phase, String(row.phase ?? '').replace(/\bphase\s*([1-4])\b/gi, 'p$1'),
+    row.paint_index, row.weapon, row.finish, row.aliases,
+    ...(row.wears || []).map(wear => wear + ' ' + (wearAliases[wear] || '')),
+    ...(row.collections || []), ...(row.crates || [])
+  ].flat().map(value => typeof value === 'object' && value !== null ? value.name : value).join(' ')).join(' ');
+  const skinMatchesQuery = (row, tokens) => {
+    const text = skinSearchText(row);
+    return tokens.every(token => text.includes(token));
+  };
   function populateSkins() {
-    const query=$('#skin-search').value.toLowerCase(), previous=$('#skin-select').value;
-    const rows=benchmarks.filter(row=>(label(row)+' '+names(row.collections)).toLowerCase().includes(query));
+    const tokens=searchTokens($('#skin-search').value), previous=$('#skin-select').value;
+    const rows=benchmarks.filter(row=>skinMatchesQuery(row, tokens));
     $('#skin-select').innerHTML=rows.map(row=>'<option value="'+esc(row.id)+'">'+esc(label(row))+'</option>').join('') || '<option value="">No matching skin</option>';
     $('#skin-select').value=rows.some(row=>row.id===previous) ? previous : (rows[0]?.id || '');
     syncSelection();
