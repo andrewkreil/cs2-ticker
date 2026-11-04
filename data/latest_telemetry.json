@@ -84,10 +84,31 @@
   "telegram_feed": {
     "schema_version": 1,
     "channel": "cs2_snipe_radar_free",
-    "observed_at": "2026-11-04T01:50:29.340250+00:00",
+    "observed_at": "2026-11-04T04:37:59.322743+00:00",
     "selection_date": "2026-11-04",
     "source_url": "https://t.me/s/cs2_snipe_radar_free",
     "messages": [
+      {
+        "id": 475,
+        "kind": "alert",
+        "published_at": "2026-11-04T04:26:27+00:00",
+        "source_url": "https://t.me/s/cs2_snipe_radar_free/475",
+        "item": "AK-47 | Case Hardened (Minimal Wear)",
+        "listed": 213.34,
+        "benchmark": 238.54,
+        "net": 16.14,
+        "roi": 7.56,
+        "ttf": null,
+        "status": "OBSERVED",
+        "status_text": null,
+        "title": "AK-47 | Case Hardened (Minimal Wear)",
+        "summary": "[⚡ LIQUID UNDERCUT] AK-47 | Case Hardened (Minimal Wear)",
+        "modeled_total": null,
+        "sold_pct": null,
+        "median_seconds": null,
+        "sold_count": null,
+        "observed_count": null
+      },
       {
         "id": 473,
         "kind": "recap_24h",
@@ -381,27 +402,6 @@
         "median_seconds": null,
         "sold_count": null,
         "observed_count": null
-      },
-      {
-        "id": 458,
-        "kind": "recap_24h",
-        "published_at": "2026-11-02T23:00:03+00:00",
-        "source_url": "https://t.me/s/cs2_snipe_radar_free/458",
-        "item": null,
-        "listed": null,
-        "benchmark": null,
-        "net": null,
-        "roi": null,
-        "ttf": null,
-        "status": "RECAP",
-        "status_text": null,
-        "title": "24h Snipe Recap",
-        "summary": "📊 24h Snipe Recap | +$222.25 Net Profit Confirmed · ✅ 16/17 Sold (94.1%) · ⏱️ Median: 246.4s · 🕒 64.7% drop at :00–:04",
-        "modeled_total": 222.25,
-        "sold_pct": 94.1,
-        "median_seconds": 246.4,
-        "sold_count": 16,
-        "observed_count": 17
       }
     ]
   }
