@@ -1,7 +1,7 @@
 # Latest official 24h channel recap
 
 **Published:** 2026-11-04T23:00:03+00:00 (07:00 dispatch, Asia/Singapore)
-**Public observation:** 2026-11-04T23:49:18.342633+00:00
+**Public observation:** 2026-11-05T04:37:27.976536+00:00
 **Source:** [Telegram #487](https://t.me/s/cs2_snipe_radar_free/487)
 
 - Observed SOLD: **8/12** (66.7%)
