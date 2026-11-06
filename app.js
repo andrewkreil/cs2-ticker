@@ -212,6 +212,7 @@
       const ranges=benchmarks.filter(row=>known(row.min_float)&&known(row.max_float)&&row.max_float>row.min_float);
       $('#float-skin-select').innerHTML='<option value="">Manual range</option>'+ranges.map(row=>'<option value="'+esc(row.id)+'">'+esc(label(row))+'</option>').join('');
       $('#sample-source').textContent=samples.length+' dated observations. Skinport quote capture: '+observedAt+'. Latest public-feed observation: '+(telemetry.telegram_feed?.observed_at || 'UNKNOWN')+'.';
+      $('#latest-cards').innerHTML=(telemetry.telegram_feed?.messages || []).slice(0,15).map(row => '<article class="latest-card"><span class="eyebrow">OBSERVATION #'+esc(row.id)+'</span><h3>'+esc(row.item || row.title || 'Market observation')+'</h3><p>'+esc(row.published_at || 'UNKNOWN')+'</p><p>'+esc(row.status || 'UNKNOWN')+' · '+(known(row.ttf) ? esc(row.ttf.toFixed(1))+'s' : 'TIME UNKNOWN')+'</p>'+(known(row.listed) ? '<strong>'+money(row.listed)+'</strong>' : '')+'</article>').join('');
       $('#dataset-summary').textContent=benchmarks.length.toLocaleString()+' skin / phase identities · '+Object.keys(dictionary.prices).length.toLocaleString()+' exact market keys · '+Object.keys(dictionary.skinport).length+' local Skinport quote objects';
       renderSamples();
     } catch(error) { $('#truth-provenance').textContent=error.message; $('#telemetry-body').innerHTML='<tr><td colspan="5">Evidence could not be loaded.</td></tr>'; }

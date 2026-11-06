@@ -2,20 +2,21 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="theme-color" content="#090e16">
+  <meta name="theme-color" content="#ffffff">
   <meta http-equiv="Content-Security-Policy" content="default-src 'none';base-uri 'none';object-src 'none';script-src 'self';style-src 'self';img-src 'self' data:;connect-src 'self';font-src 'self';form-action 'none'">
   <title>CS2 Skin Truth &amp; Pattern Doctor</title>
   <meta name="description" content="Free CS2 skin diagnostics: Buff163 and CSFloat cash asks, Doppler phases, wear-band position, Skinport evidence and Float32 budgets.">
   <link rel="canonical" href="https://andrewkreil.github.io/cs2-ticker/">
-  <link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="styles.css">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="k47-tokens.css">
   <script src="math.js" defer></script><script src="app.js" defer></script>
 </head>
 <body id="top">
-<header class="site-header"><div class="container navbar"><a class="brand" href="#top">CS2 <span>Skin Truth &amp; Pattern Doctor</span></a><nav aria-label="Tools"><a href="#checker">Truth checker</a><a href="#cashout">Cashout</a><a href="#float">Float32</a><a href="#telemetry">Evidence</a></nav></div></header>
+<header class="site-header"><div class="container navbar"><a class="brand" href="#top">[K-47 <span>// QUANT AUDIT LAB]</span></a><nav aria-label="Tools"><a href="#checker">Truth checker</a><a href="#cashout">Cashout</a><a href="#float">Float32</a><a href="#telemetry">Evidence</a></nav></div></header>
 <main class="container">
-  <section class="hero"><p class="eyebrow">FREE / OPEN-SOURCE / NO STEAM LOGIN</p>
+  <section class="hero"><p class="eyebrow">AUDITING MARKET MICROSTRUCTURE. ZERO RECOIL. PURE QUANT TELEMETRY.</p>
     <h1>CS2 Skin Truth<br><span>&amp; Pattern Doctor.</span></h1>
     <p class="lede">One skin. Four checks. Compare real cash asks, locate the float inside its wear band, separate Doppler phases, and calculate the normalized wear budget.</p>
+    <p class="community-entry"><a href="https://discord.gg/XVgpjRRxK6">Join [K-47] Free 15m Telemetry Discord ▸</a></p>
     <p id="dataset-summary" class="dataset-summary">Loading full skin metadata and dated market anchors…</p>
   </section>
   <section id="checker" class="tool-section"><div class="section-heading"><p class="eyebrow">01 / FOUR CHECKS BEFORE YOU BUY</p><h2>Look past the discount badge.</h2><p>ByMykel skin identities + CSGOTrader Buff163 / CSFloat snapshots + observed Skinport sales. Prices are USD, matched by exterior, variant and phase.</p></div>
@@ -32,7 +33,7 @@
     <div class="truth-results" aria-live="polite"><div><span>Suggested vs 7d median</span><strong id="truth-gap">UNKNOWN</strong></div><div><span>7d liquidity</span><strong id="truth-grade">UNKNOWN</strong></div><div><span>Max Safe Buy Price</span><strong id="truth-safe">UNKNOWN</strong></div><div><span>Historical mean below safe price</span><strong id="truth-speed">UNKNOWN</strong></div></div>
     <p id="truth-metrics" class="mono"></p><p id="truth-provenance" class="note"></p>
     <p class="note">Safe price = floor to cents of min(after-fee 7d median − $2.50, after-fee 7d median ÷ 1.06). Uses the public Skinport tier below; excludes tax, currency conversion and inventory/time costs. “Safe” names this model ceiling, not a guaranteed resale.</p>
-    <p class="inline-cta"><a href="https://discord.gg/XVgpjRRxK6">Want to see live listings checked against this math without refreshing by hand? We stream the automated 15m-delayed log for free in our community Discord →</a></p></div>
+    </div>
   </section>
   <section id="cashout" class="tool-section"><div class="section-heading"><p class="eyebrow">02 / ONE PRICE, FOUR OUTCOMES</p><h2>Follow the cash. Count the friction.</h2></div>
     <div class="panel"><div class="chips" aria-label="Sale amount examples"><button data-amount="100">$100</button><button data-amount="250">$250</button><button data-amount="500">$500</button><button data-amount="1000">$1,000</button></div>
@@ -50,6 +51,7 @@
     <p class="note">Wear ranges do not establish recipe eligibility, output probability or acquisition availability. The light compares the projected output with your target, then applies Math.fround() to that output. It illustrates IEEE-754 binary32 storage rounding; it does not claim to reproduce unpublished game internals.</p></div>
   </section>
   <section id="telemetry" class="tool-section"><div class="section-heading"><p class="eyebrow">04 / DATED OBSERVATIONS</p><h2>Inspect the sample. Load the math.</h2><p id="sample-source"></p></div>
+    <div id="latest-cards" class="latest-cards" aria-live="polite"></div>
     <div class="panel"><label class="budget-filter">Acquisition budget<select id="budget-select"><option value="all">All</option><option value="under100">&lt;$100</option><option value="100to300">$100–&lt;$300</option><option value="over300">$300+</option></select></label>
     <div class="table-scroll"><table><thead><tr><th>Skin / observation</th><th>Listed</th><th>Dated 7d median</th><th>Observed SOLD</th><th>Calculate</th></tr></thead><tbody id="telemetry-body"><tr><td colspan="5">Loading local evidence…</td></tr></tbody></table></div><p id="load-note" class="note" role="status"></p>
     <p class="note">SOLD means the market listing was observed sold. It is not evidence of a user purchase, resale or realized gain. Quotes and listings can have different observation dates; later quotes are retrospective comparisons, not point-in-time trading signals.</p></div>
