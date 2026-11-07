@@ -332,7 +332,7 @@
     const noOverpay=(!matching4&&Math.max(...st.map(x=>Number(x.price)))<2)||(matching4&&pool<2)||(pool/base<.015&&pool<10);
     if(noOverpay)return {baseAdjusted,floatAdjustment:base*fp,pool,platformSP:(listing-base)/pool*100,realSP:(listing-baseAdjusted)/pool*100,fairSP:{low:0,mid:0,high:.5},fairValue:{low:baseAdjusted,mid:baseAdjusted,high:baseAdjusted},buySP:0,buyLimit:baseAdjusted*.94,tts:tier==='L1'?{low:.5,high:2}:{low:2,high:7},tier,noOverpay:true};
     let raw=0;prices.forEach((x,i)=>{const w=Number(x.scrape),win=x.easterEggWindow,egg=Array.isArray(win)&&win.length===2&&w>=win[0]&&w<=win[1],ret=w<=0||egg?1:w>(x.tier==='S'?.75:.45)?0:.75*Math.exp(-(x.tier==='S'?2.8:3.8)*w);raw+=Number(x.price)*BASE_SP_MATRIX[tier][x.tier]*slots[Number(x.slot)]*ret*rank[i]*(mat[x.material]??.45);});
-    const n=st.length, curve=prices[0].material==='Holo'?[0,1,.62,.58,1.25,1.38]:[0,1,.58,.52,.98,1.08];
+    const n=st.length, curve=['Holo','Lenticular'].includes(prices[0].material)?[0,1,1.35,1.85,4.10,4.50]:[0,1,1.20,1.55,3.20,3.55];
     const synergy=matching?curve[n]:({themed_kato:1.85,themed_team:1.35,themed_color:1.20,random_mixed:.85}[o.theme]);
     const supply=Number(o.supply),scarcity=o.modern&&supply>=1&&n>=4?1+.65*Math.exp(-.35*(supply-1)):1;
     let mid=Math.min(.82,raw*synergy*place*color*scarcity/pool),lo=mid*.82,hi=Math.min(.88,mid*1.20);
