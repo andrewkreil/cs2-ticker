@@ -305,7 +305,40 @@
     if (f < 0.45) return {name:"Well-Worn", min:0.38, max:0.45};
     return {name:"Battle-Scarred", min:0.45, max:1};
   }
-  return Object.freeze({calculateSnipe, compareCashout, compareArena, calculateSafeBuy, normalizeFloat,
+  const BASE_SP_MATRIX={L1:{S:.102,A:.082,B:.052,C:.005},L2:{S:.062,A:.050,B:.030,C:0},L3:{S:.036,A:.028,B:.016,C:0},L4:{S:.018,A:.013,B:.005,C:0},L5:{S:.010,A:.006,B:.001,C:0}};
+  const weaponSlotWeights={'AK-47':[1,.85,.75,.90,.65],AWP:[1,.80,.55,.20,.45],'M4A1-S':[.60,1,.85,.70,.45],M4A4:[1,.75,.85,.30,.60],'Desert Eagle':[.85,.90,1,.20,.75],'Glock-18':[.90,.88,1,.15,.65],'USP-S':[.85,.90,1,.18,.55]};
+  function stickerAudit(o) {
+    const base=Number(o.floor), listing=Number(o.listing), fv=Number(o.floatValue), st=o.stickers;
+    if (!(base>0) || !(listing>=0) || !(fv>=0&&fv<=1) || !Array.isArray(st) || st.length<1 || st.length>5) throw new RangeError('Enter a positive base, listing, float and 1–5 stickers.');
+    const matrix=BASE_SP_MATRIX[o.liquidity], slots=weaponSlotWeights[o.weapon];
+    if (!matrix || !slots) throw new RangeError('Choose a weapon and liquidity tier.');
+    let tier=o.liquidity;if(o.exterior==='Battle-Scarred'&&tier==='L1')tier='L4';else if(o.exterior==='Well-Worn'&&tier==='L1')tier='L2';
+    let fp=0;
+    if(o.exterior==='Factory New')fp=fv<.001?.899:fv<.005?.296:fv<.01?.076:fv<.02?.017:fv<.04?0:-.012;
+    if(o.exterior==='Minimal Wear')fp=fv<.08?.087:fv>.14?-.012:0;
+    if(o.exterior==='Field-Tested')fp=fv<.175?.077:fv>.35?-.018:0;
+    fp=Math.max(-.02,fp*(base<20?1.35:base>500?.65:1));
+    const baseAdjusted=base*(1+fp), pool=st.reduce((sum,x)=>sum+Number(x.price),0);
+    if (!(pool>0) || st.some(x=>!(Number(x.price)>0)||!BASE_SP_MATRIX[tier].hasOwnProperty(x.tier)||!Number.isInteger(Number(x.slot))||Number(x.slot)<0||Number(x.slot)>4||!(Number(x.scrape)>=0&&Number(x.scrape)<=1))) throw new RangeError('Enter a positive sticker price and scrape between 0 and 100%.');
+    const matching=o.theme==='matching', prices=[...st].sort((a,b)=>b.price-a.price), rank={matching:[1,1,1,1,1],themed_kato:[1,.92,.85,.78,.72],themed_team:[1,.85,.75,.65,.60],themed_color:[1,.80,.65,.55,.50],random_mixed:[1,.5,.3,.15,.10]}[o.theme];
+    if(!rank)throw new RangeError('Choose a craft type.');
+    const mat={Holo:1,Lenticular:.90,Foil:.85,Gold:.65,Glitter:.45,Paper:.45};
+    const place={preset_standard:1,custom_across_body:1.10,best_position:1,grip_obscured:1,custom_sloppy:.52}[o.placement];
+    const color={apex_match:1.35,canvas_harmonious:1.18,neutral:1,clash:.72}[o.color];
+    if(place===undefined||color===undefined)throw new RangeError('Choose placement and color.');
+    const matching4=matching&&st.length>=4;
+    const noOverpay=(!matching4&&Math.max(...st.map(x=>Number(x.price)))<2)||(matching4&&pool<2)||(pool/base<.015&&pool<10);
+    if(noOverpay)return {baseAdjusted,floatAdjustment:base*fp,pool,platformSP:(listing-base)/pool*100,realSP:(listing-baseAdjusted)/pool*100,fairSP:{low:0,mid:0,high:.5},fairValue:{low:baseAdjusted,mid:baseAdjusted,high:baseAdjusted},buySP:0,buyLimit:baseAdjusted*.94,tts:tier==='L1'?{low:.5,high:2}:{low:2,high:7},tier,noOverpay:true};
+    let raw=0;prices.forEach((x,i)=>{const w=Number(x.scrape),ret=w<=0?1:w>(x.tier==='S'?.75:.45)?0:.75*Math.exp(-(x.tier==='S'?2.8:3.8)*w);raw+=Number(x.price)*BASE_SP_MATRIX[tier][x.tier]*slots[Number(x.slot)]*ret*rank[i]*(mat[x.material]??.45);});
+    const n=st.length, curve=prices[0].material==='Holo'?[0,1,.62,.58,1.25,1.38]:[0,1,.58,.52,.98,1.08];
+    const synergy=matching?curve[n]:({themed_kato:1.85,themed_team:1.35,themed_color:1.20,random_mixed:.85}[o.theme]);
+    const supply=Number(o.supply),scarcity=o.modern&&supply>=1&&n>=4?1+.65*Math.exp(-.35*(supply-1)):1;
+    let mid=Math.min(.82,raw*synergy*place*color*scarcity/pool),lo=mid*.82,hi=Math.min(.88,mid*1.20);
+    const discount={L1:.62,L2:.52,L3:.42,L4:.30,L5:.22}[tier], buy=mid*discount, fair=baseAdjusted+mid*pool;
+    const ttsBase={L1:2,L2:5.5,L3:12,L4:35,L5:65}[tier];const t=Math.round(ttsBase*(1+1.15*Math.log(1+mid*pool/Math.max(10,baseAdjusted))+.008*(mid*pool/10))/(color*Math.min(1,place)));
+    return {baseAdjusted,floatAdjustment:base*fp,pool,platformSP:(listing-base)/pool*100,realSP:(listing-baseAdjusted)/pool*100,fairSP:{low:lo*100,mid:mid*100,high:hi*100},fairValue:{low:baseAdjusted+lo*pool,mid:fair,high:baseAdjusted+hi*pool},buySP:buy*100,buyLimit:baseAdjusted*.98+buy*pool,tts:{low:Math.max(1,Math.floor(t*.7)),high:Math.ceil(t*1.4)},tier,noOverpay};
+  }
+  return Object.freeze({calculateSnipe, compareCashout, compareArena, calculateSafeBuy, normalizeFloat, stickerAudit, BASE_SP_MATRIX, weaponSlotWeights,
     calculateFillers, cashout, float32, classifyFloat32, projectFloat, crossMarket,
     bandPercentile, bandDiagnosis, phaseDiagnosis, fillerPerspective, marketHashName,
     resolveMarketQuote, wearBand});
