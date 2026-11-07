@@ -228,7 +228,7 @@
     const count=Number($('#sc-count').value), container=$('#sc-stickers');
     while(container.children.length<count){
       const i=container.children.length, row=document.createElement('div');row.className='input-grid';row.dataset.stickerRow=String(i);
-      row.innerHTML='<label>Sticker '+(i+1)+' price (USD)<input data-sc="price" type="number" min="0.01" step="0.01" value="88.39"></label><label>Tier<select data-sc="tier"><option>S</option><option>A</option><option selected>B</option><option>C</option></select></label><label>Material<select data-sc="material"><option>Holo</option><option>Foil</option><option>Lenticular</option><option>Gold</option><option>Glitter</option><option>Paper</option></select></label><label>Slot<select data-sc="slot">'+[0,1,2,3,4].map(n=>'<option '+(n===i?'selected':'')+'>'+n+'</option>').join('')+'</select></label><label>Scrape (%)<input data-sc="scrape" type="number" min="0" max="100" step="0.1" value="0"></label>';
+      row.innerHTML='<label>Sticker '+(i+1)+' name<input data-sc="name" value="Cloud9 Holo Boston 2018"></label><label>Price (USD)<input data-sc="price" type="number" min="0.01" step="0.01" value="88.39"></label><label>Tier<select data-sc="tier"><option>S</option><option>A</option><option selected>B</option><option>C</option></select></label><label>Material<select data-sc="material"><option>Holo</option><option>Foil</option><option>Lenticular</option><option>Gold</option><option>Glitter</option><option>Paper</option></select></label><label>Slot<select data-sc="slot">'+[0,1,2,3,4].map(n=>'<option '+(n===i?'selected':'')+'>'+n+'</option>').join('')+'</select></label><label>Scrape (%)<input data-sc="scrape" type="number" min="0" max="100" step="0.1" value="0"></label><label>Exception window from %<input data-sc="egg-low" type="number" min="0" max="100" step="0.1" placeholder="Optional"></label><label>Exception window to %<input data-sc="egg-high" type="number" min="0" max="100" step="0.1" placeholder="Optional"></label>';
       container.appendChild(row);
     }
     while(container.children.length>count)container.lastElementChild.remove();
@@ -236,7 +236,7 @@
   function renderSticker() {
     try {
       const weapon=$('#sc-weapon').value, placement=$('#sc-place').value;
-      const rows=[...$('#sc-stickers').children].map(row=>{const v=n=>row.querySelector('[data-sc="'+n+'"]').value;return {price:Number(v('price')),tier:v('tier'),material:v('material'),slot:Number(v('slot')),scrape:Number(v('scrape'))/100};});
+      const rows=[...$('#sc-stickers').children].map(row=>{const v=n=>row.querySelector('[data-sc="'+n+'"]').value;const lo=v('egg-low'),hi=v('egg-high');if((lo==='')!==(hi==='')||(lo!==''&&(!(Number(lo)>=0)||Number(hi)>100||Number(lo)>Number(hi))))throw new Error('Enter both scrape exception limits between 0 and 100%.');return {name:v('name'),price:Number(v('price')),tier:v('tier'),material:v('material'),slot:Number(v('slot')),scrape:Number(v('scrape'))/100,easterEggWindow:lo===''?null:[Number(lo)/100,Number(hi)/100]};});
       if(placement==='best_position'&&rows.length===1)rows[0].slot=GrowthMath.weaponSlotWeights[weapon].indexOf(Math.max(...GrowthMath.weaponSlotWeights[weapon]));
       if(placement==='grip_obscured'&&rows.length===1)rows[0].slot=GrowthMath.weaponSlotWeights[weapon].indexOf(Math.min(...GrowthMath.weaponSlotWeights[weapon]));
       const r=GrowthMath.stickerAudit({weapon,liquidity:$('#sc-liquidity').value,exterior:$('#sc-exterior').value,floatValue:$('#sc-float').value,floor:$('#sc-floor').value,listing:$('#sc-listing').value,theme:$('#sc-theme').value,placement,color:$('#sc-color').value,modern:$('#sc-modern').value==='yes',supply:$('#sc-supply').value,stickers:rows});
@@ -249,15 +249,16 @@
     }catch(error){$('#sc-error').textContent=error.message;['sc-real','sc-fair','sc-buy','sc-tts'].forEach(id=>{$('#'+id).textContent='—';});}
   }
   function stickerPreset(name){
-    const p={icarus:{weapon:'M4A1-S',exterior:'Factory New',f:.042,floor:351.22,listing:437.13,price:88.39,tier:'B',color:'apex_match'},phosphor:{weapon:'M4A1-S',exterior:'Factory New',f:.0015,floor:500,listing:735,price:42.50,tier:'B',color:'canvas_harmonious'},redline:{weapon:'AK-47',exterior:'Field-Tested',f:.20,floor:50,listing:170,price:400,tier:'A',color:'neutral'}}[name];
+    const p={icarus:{name:'Cloud9 Holo Boston 2018',weapon:'M4A1-S',exterior:'Factory New',f:.042,floor:351.22,listing:437.13,price:88.39,tier:'B',color:'apex_match'},phosphor:{name:'Stockholm Holo example',weapon:'M4A1-S',exterior:'Factory New',f:.0015,floor:500,listing:735,price:42.50,tier:'B',color:'canvas_harmonious'},redline:{name:'Katowice 2015 Holo example',weapon:'AK-47',exterior:'Field-Tested',f:.20,floor:50,listing:170,price:400,tier:'A',color:'neutral'}}[name];
     $('#sc-weapon').value=p.weapon;$('#sc-liquidity').value='L1';$('#sc-exterior').value=p.exterior;$('#sc-float').value=p.f;$('#sc-floor').value=p.floor;$('#sc-listing').value=p.listing;$('#sc-theme').value='matching';$('#sc-place').value='preset_standard';$('#sc-color').value=p.color;$('#sc-modern').value='no';$('#sc-supply').value='';$('#sc-count').value='4';stickerRows();
-    [...$('#sc-stickers').children].forEach((row,i)=>{row.querySelector('[data-sc="price"]').value=p.price;row.querySelector('[data-sc="tier"]').value=p.tier;row.querySelector('[data-sc="material"]').value='Holo';row.querySelector('[data-sc="slot"]').value=String(i);row.querySelector('[data-sc="scrape"]').value='0';});renderSticker();
+    [...$('#sc-stickers').children].forEach((row,i)=>{row.querySelector('[data-sc="name"]').value=p.name;row.querySelector('[data-sc="price"]').value=p.price;row.querySelector('[data-sc="tier"]').value=p.tier;row.querySelector('[data-sc="material"]').value='Holo';row.querySelector('[data-sc="slot"]').value=String(i);row.querySelector('[data-sc="scrape"]').value='0';row.querySelector('[data-sc="egg-low"]').value='';row.querySelector('[data-sc="egg-high"]').value='';});renderSticker();
   }
   document.addEventListener('DOMContentLoaded', () => {
     load(); renderCashout(); renderFloat();
     stickerRows();renderSticker();
     ['sc-weapon','sc-liquidity','sc-exterior','sc-float','sc-floor','sc-listing','sc-theme','sc-place','sc-color','sc-modern','sc-supply'].forEach(id=>{$('#'+id).oninput=renderSticker;});
     $('#sc-count').onchange=()=>{stickerRows();renderSticker();};$('#sc-stickers').oninput=renderSticker;
+    $('#sc-place').oninput=()=>{if(['best_position','grip_obscured'].includes($('#sc-place').value)){$('#sc-count').value='1';stickerRows();}renderSticker();};
     all('[data-sticker-preset]').forEach(button=>{button.onclick=()=>stickerPreset(button.dataset.stickerPreset);});
     $('#skin-search').oninput=populateSkins;
     $('#skin-select').onchange=syncSelection;

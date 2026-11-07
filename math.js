@@ -320,7 +320,9 @@
     fp=Math.max(-.02,fp*(base<20?1.35:base>500?.65:1));
     const baseAdjusted=base*(1+fp), pool=st.reduce((sum,x)=>sum+Number(x.price),0);
     if (!(pool>0) || st.some(x=>!(Number(x.price)>0)||!BASE_SP_MATRIX[tier].hasOwnProperty(x.tier)||!Number.isInteger(Number(x.slot))||Number(x.slot)<0||Number(x.slot)>4||!(Number(x.scrape)>=0&&Number(x.scrape)<=1))) throw new RangeError('Enter a positive sticker price and scrape between 0 and 100%.');
-    const matching=o.theme==='matching', prices=[...st].sort((a,b)=>b.price-a.price), rank={matching:[1,1,1,1,1],themed_kato:[1,.92,.85,.78,.72],themed_team:[1,.85,.75,.65,.60],themed_color:[1,.80,.65,.55,.50],random_mixed:[1,.5,.3,.15,.10]}[o.theme];
+    const matching=o.theme==='matching';
+    if(matching&&st.some(x=>!String(x.name||'').trim()||String(x.name).trim().toLowerCase()!==String(st[0].name||'').trim().toLowerCase()||x.tier!==st[0].tier||x.material!==st[0].material||Number(x.price)!==Number(st[0].price)))throw new RangeError('Matching craft requires the same sticker name, price, tier and material in each row.');
+    const prices=[...st].sort((a,b)=>b.price-a.price), rank={matching:[1,1,1,1,1],themed_kato:[1,.92,.85,.78,.72],themed_team:[1,.85,.75,.65,.60],themed_color:[1,.80,.65,.55,.50],random_mixed:[1,.5,.3,.15,.10]}[o.theme];
     if(!rank)throw new RangeError('Choose a craft type.');
     const mat={Holo:1,Lenticular:.90,Foil:.85,Gold:.65,Glitter:.45,Paper:.45};
     const place={preset_standard:1,custom_across_body:1.10,best_position:1,grip_obscured:1,custom_sloppy:.52}[o.placement];
@@ -329,7 +331,7 @@
     const matching4=matching&&st.length>=4;
     const noOverpay=(!matching4&&Math.max(...st.map(x=>Number(x.price)))<2)||(matching4&&pool<2)||(pool/base<.015&&pool<10);
     if(noOverpay)return {baseAdjusted,floatAdjustment:base*fp,pool,platformSP:(listing-base)/pool*100,realSP:(listing-baseAdjusted)/pool*100,fairSP:{low:0,mid:0,high:.5},fairValue:{low:baseAdjusted,mid:baseAdjusted,high:baseAdjusted},buySP:0,buyLimit:baseAdjusted*.94,tts:tier==='L1'?{low:.5,high:2}:{low:2,high:7},tier,noOverpay:true};
-    let raw=0;prices.forEach((x,i)=>{const w=Number(x.scrape),ret=w<=0?1:w>(x.tier==='S'?.75:.45)?0:.75*Math.exp(-(x.tier==='S'?2.8:3.8)*w);raw+=Number(x.price)*BASE_SP_MATRIX[tier][x.tier]*slots[Number(x.slot)]*ret*rank[i]*(mat[x.material]??.45);});
+    let raw=0;prices.forEach((x,i)=>{const w=Number(x.scrape),win=x.easterEggWindow,egg=Array.isArray(win)&&win.length===2&&w>=win[0]&&w<=win[1],ret=w<=0||egg?1:w>(x.tier==='S'?.75:.45)?0:.75*Math.exp(-(x.tier==='S'?2.8:3.8)*w);raw+=Number(x.price)*BASE_SP_MATRIX[tier][x.tier]*slots[Number(x.slot)]*ret*rank[i]*(mat[x.material]??.45);});
     const n=st.length, curve=prices[0].material==='Holo'?[0,1,.62,.58,1.25,1.38]:[0,1,.58,.52,.98,1.08];
     const synergy=matching?curve[n]:({themed_kato:1.85,themed_team:1.35,themed_color:1.20,random_mixed:.85}[o.theme]);
     const supply=Number(o.supply),scarcity=o.modern&&supply>=1&&n>=4?1+.65*Math.exp(-.35*(supply-1)):1;
