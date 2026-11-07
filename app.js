@@ -257,7 +257,7 @@
     load(); renderCashout(); renderFloat();
     stickerRows();renderSticker();
     ['sc-weapon','sc-liquidity','sc-exterior','sc-float','sc-floor','sc-listing','sc-theme','sc-place','sc-color','sc-modern','sc-supply'].forEach(id=>{$('#'+id).oninput=renderSticker;});
-    $('#sc-count').onchange=()=>{stickerRows();renderSticker();};$('#sc-stickers').oninput=renderSticker;
+    $('#sc-count').onchange=()=>{if(Number($('#sc-count').value)>1&&['best_position','grip_obscured'].includes($('#sc-place').value))$('#sc-place').value='preset_standard';stickerRows();renderSticker();};$('#sc-stickers').oninput=renderSticker;
     $('#sc-place').oninput=()=>{if(['best_position','grip_obscured'].includes($('#sc-place').value)){$('#sc-count').value='1';stickerRows();}renderSticker();};
     all('[data-sticker-preset]').forEach(button=>{button.onclick=()=>stickerPreset(button.dataset.stickerPreset);});
     $('#skin-search').oninput=populateSkins;
