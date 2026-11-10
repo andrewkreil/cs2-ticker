@@ -1,12 +1,12 @@
 # Latest official 24h channel recap
 
-**Published:** 2026-11-06T23:00:03+00:00 (07:00 dispatch, Asia/Singapore)
-**Public observation:** 2026-11-07T04:40:11.088994+00:00
-**Source:** [Telegram #503](https://t.me/s/cs2_snipe_radar_free/503)
+**Published:** 2026-11-09T23:00:04+00:00 (07:00 dispatch, Asia/Singapore)
+**Public observation:** 2026-11-10T03:28:16.786005+00:00
+**Source:** [Telegram #520](https://t.me/s/cs2_snipe_radar_free/520)
 
-- Observed SOLD: **6/7** (85.7%)
-- Modeled post-fee spread: **$43.97**
-- Median observed lifetime: **1172.0 s**
+- Observed SOLD: **4/4** (100.0%)
+- Modeled post-fee spread: **$58.34**
+- Median observed lifetime: **772.1 s**
 
 These are dated public observations, not realized trading profits. Later SOLD updates to individual cards may differ from the cutoff recap. Scanned/rejected event counts are not supplied by this recap and remain unknown.
 
